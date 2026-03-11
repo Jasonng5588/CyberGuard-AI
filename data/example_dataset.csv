@@ -1,0 +1,51 @@
+text,label,source
+"Have a great day! Hope you feel better soon.",SAFE,synthetic
+"I love spending time with my friends!",SAFE,synthetic
+"Looking forward to the weekend activities.",SAFE,synthetic
+"Can we work together on this project?",SAFE,synthetic
+"That was a really interesting lecture today.",SAFE,synthetic
+"Happy birthday! Hope you have a wonderful day.",SAFE,synthetic
+"Thanks for helping me with the assignment!",SAFE,synthetic
+"I really enjoyed our group discussion.",SAFE,synthetic
+"See you at the library tomorrow!",SAFE,synthetic
+"Great job on your presentation today.",SAFE,synthetic
+"What time does the class start?",SAFE,synthetic
+"I think your idea is really creative.",SAFE,synthetic
+"Let me know if you need any help.",SAFE,synthetic
+"The project is coming along nicely.",SAFE,synthetic
+"I appreciate your support, thank you.",SAFE,synthetic
+"That movie was a bit weird.",OFFENSIVE,synthetic
+"Ew, that's gross and disgusting.",OFFENSIVE,synthetic
+"Shut up, you're so annoying.",OFFENSIVE,synthetic
+"That is so cringe, I can't even.",OFFENSIVE,synthetic
+"Get lost, nobody asked for your opinion.",OFFENSIVE,synthetic
+"You're such a weirdo loser.",OFFENSIVE,synthetic
+"Nobody cares about what you think.",OFFENSIVE,synthetic
+"Stop being so dramatic all the time.",OFFENSIVE,synthetic
+"That's so dumb, why would you do that.",OFFENSIVE,synthetic
+"You're really weird and creepy.",OFFENSIVE,synthetic
+"I hate your attitude so much.",OFFENSIVE,synthetic
+"That's embarrassing for you, honestly.",OFFENSIVE,synthetic
+"Your jokes are so unfunny and lame.",OFFENSIVE,synthetic
+"You're so desperate for attention.",OFFENSIVE,synthetic
+"Just shut your mouth, seriously.",OFFENSIVE,synthetic
+"You are so stupid. Nobody likes you. Go die.",CYBERBULLYING,synthetic
+"Kill yourself, nobody cares about you.",CYBERBULLYING,synthetic
+"I'm going to make your life miserable. You're worthless.",CYBERBULLYING,synthetic
+"You're ugly and fat, no wonder you have no friends.",CYBERBULLYING,synthetic
+"Everyone hates you. You should just disappear.",CYBERBULLYING,synthetic
+"You don't deserve to exist. You are garbage.",CYBERBULLYING,synthetic
+"I will ruin your reputation. Watch out, freak.",CYBERBULLYING,synthetic
+"Nobody wants you here. You're a pathetic loser.",CYBERBULLYING,synthetic
+"You're disgusting and your family is ashamed of you.",CYBERBULLYING,synthetic
+"Just end it already. You are worthless to everyone.",CYBERBULLYING,synthetic
+"You're the ugliest person I've ever seen. So gross.",CYBERBULLYING,synthetic
+"Everyone is laughing at you. You are a complete joke.",CYBERBULLYING,synthetic
+"I shared your embarrassing photos. Enjoy the humiliation.",CYBERBULLYING,synthetic
+"Your friends all hate you behind your back, idiot.",CYBERBULLYING,synthetic
+"You are a total freak and deserve to be alone.",CYBERBULLYING,synthetic
+"You are so stupid, how are you even in this class.",CYBERBULLYING,synthetic
+"You should be ashamed of yourself, you disgusting pig.",CYBERBULLYING,synthetic
+"Get away from me you worthless piece of garbage.",CYBERBULLYING,synthetic
+"I hope something terrible happens to you, you deserve it.",CYBERBULLYING,synthetic
+"Nobody will ever love someone as ugly and pathetic as you.",CYBERBULLYING,synthetic

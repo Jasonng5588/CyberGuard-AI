@@ -158,16 +158,14 @@ async def submit_response_feedback(
 ):
     """
     User feedback on a bot response.
-    Records whether a bot response was helpful — used for system evaluation.
-    Fulfills the report's User Satisfaction Evaluation requirement.
+    Records whether a bot response was helpful — used for system evaluation and RO4.
+    Saves to the feedback_helpful boolean column for dashboard analytics.
     """
     log = db.query(ChatLog).filter(ChatLog.id == log_id).first()
     if not log:
         raise HTTPException(status_code=404, detail="Chat log not found")
-    # Store feedback signal in explanation field (clean solution without schema migration)
-    current = log.explanation or ""
-    if "[feedback:" not in current:
-        log.explanation = current + f" [feedback:{'helpful' if helpful else 'not_helpful'}]"
+    # Store in dedicated boolean column for analytics queries
+    log.feedback_helpful = helpful
     db.commit()
     return {"status": "ok", "log_id": log_id, "helpful": helpful}
 

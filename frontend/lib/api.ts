@@ -269,3 +269,85 @@ export async function submitFeedback(logId: number, helpful: boolean): Promise<v
     const res = await fetch(`${API_URL}/api/logs/feedback/${logId}?helpful=${helpful}`, { method: 'POST' });
     if (!res.ok) throw new Error(`Feedback submission failed: ${res.statusText}`);
 }
+
+// ─── Evaluation / RO4 ────────────────────────────────────────────────────────
+
+export interface ClassMetrics {
+    precision: number;
+    recall: number;
+    f1: number;
+    true_positives: number;
+    false_positives: number;
+    false_negatives: number;
+}
+
+export interface EvaluationResult {
+    total_samples: number;
+    correct_predictions: number;
+    accuracy: number;
+    macro_precision: number;
+    macro_recall: number;
+    macro_f1: number;
+    per_class: { [label: string]: ClassMetrics };
+    detailed_results: Array<{ text: string; expected: string; predicted: string; correct: boolean }>;
+}
+
+export interface SurveyStats {
+    total_responses: number;
+    avg_overall: number;
+    avg_understanding: number;
+    avg_detection: number;
+    avg_support: number;
+    avg_return: number;
+    sus_score: number;
+}
+
+export interface FeedbackStats {
+    total_feedback: number;
+    helpful_count: number;
+    unhelpful_count: number;
+    helpful_rate: number;
+    by_label: {
+        [label: string]: {
+            total_feedback: number;
+            helpful: number;
+            unhelpful: number;
+            helpful_rate: number;
+        };
+    };
+}
+
+export interface FullEvaluation {
+    detection_metrics: EvaluationResult;
+    survey_stats: SurveyStats | null;
+    feedback_stats: FeedbackStats;
+}
+
+/** Run the full evaluation suite (gold test + survey + feedback analysis) */
+export async function runEvaluation(): Promise<FullEvaluation> {
+    const res = await fetch(`${API_URL}/api/evaluate`);
+    if (!res.ok) throw new Error(`Evaluation failed: ${res.statusText}`);
+    return res.json();
+}
+
+export interface SurveySubmit {
+    user_id?: number;
+    session_id?: string;
+    q_overall: number;
+    q_understanding: number;
+    q_detection: number;
+    q_support: number;
+    q_return: number;
+    comment?: string;
+}
+
+/** Submit a user satisfaction survey response */
+export async function submitSurvey(payload: SurveySubmit): Promise<void> {
+    const res = await fetch(`${API_URL}/api/evaluate/survey`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`Survey submission failed: ${res.statusText}`);
+}
+

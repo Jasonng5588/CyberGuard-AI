@@ -58,5 +58,23 @@ class ChatLog(Base):
     explanation = Column(Text, nullable=True)
     session_id = Column(String(36), nullable=True, index=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    feedback_helpful = Column(Boolean, nullable=True)  # thumbs up/down result
 
     user = relationship("User", back_populates="chat_logs")
+
+
+class SurveyResponse(Base):
+    """Post-session user satisfaction survey (SUS-style, 5 questions)."""
+    __tablename__ = "survey_responses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    session_id = Column(String(36), nullable=True, index=True)
+    # Ratings 1–5 for each dimension
+    q_overall = Column(Integer, nullable=False)       # Overall satisfaction
+    q_understanding = Column(Integer, nullable=False) # Chatbot understood my situation
+    q_detection = Column(Integer, nullable=False)     # Detection felt accurate
+    q_support = Column(Integer, nullable=False)       # Support responses were helpful
+    q_return = Column(Integer, nullable=False)        # Would use again (1=No, 5=Definitely)
+    comment = Column(Text, nullable=True)
+    submitted_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -5,12 +5,13 @@ import {
     Send, Trash2, Brain, User, Shield, AlertTriangle, CheckCircle,
     Info, Copy, Tag, MessageSquare, Plus, MessageCircle, Menu, X, ThumbsUp, ThumbsDown
 } from "lucide-react";
-import { detectMessage, sendChatMessage, getUserChatSessions, getSessionHistory, deleteSession, ChatSessionPreview, LogEntry, syncUser, submitFeedback } from "@/lib/api";
 import { AuthGuard } from "@/components/AuthGuard";
 import { createClient } from "@/lib/supabase";
+import { submitSurvey, SurveySubmit, detectMessage, sendChatMessage, getUserChatSessions, getSessionHistory, deleteSession, ChatSessionPreview, LogEntry, syncUser, submitFeedback } from "@/lib/api";
 
 interface Message {
     id: string;
+    log_id?: number;
     role: "user" | "bot";
     text: string;
     timestamp: Date;
@@ -81,6 +82,15 @@ export default function ChatPage() {
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [userId, setUserId] = useState<number | null>(null);
     const [feedbackState, setFeedbackState] = useState<Record<string, "up" | "down" | null>>({});
+    
+    // Survey State
+    const [surveyOpen, setSurveyOpen] = useState(false);
+    const [surveyData, setSurveyData] = useState<SurveySubmit>({
+        q_overall: 0, q_understanding: 0, q_detection: 0, q_support: 0, q_return: 0, comment: ""
+    });
+    const [surveySubmitting, setSurveySubmitting] = useState(false);
+    const [surveyDone, setSurveyDone] = useState(false);
+
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -150,6 +160,15 @@ export default function ChatPage() {
         }
     };
 
+    const handleFeedback = async (logId: number, helpful: boolean) => {
+        try {
+            await submitFeedback(logId, helpful);
+            setFeedbackState(prev => ({ ...prev, [logId]: helpful ? "up" : "down" }));
+        } catch (e) {
+            alert("Failed to record feedback.");
+        }
+    };
+
     const startNewChat = () => {
         setActiveSessionId(null);
         setMessages([]);
@@ -180,7 +199,7 @@ export default function ChatPage() {
                 if (userId) getUserChatSessions(userId, 20).then(setSessions);
             }
             const botMsg: Message = {
-                id: (Date.now() + 1).toString(), role: "bot", text: chatRes.bot_response,
+                id: (Date.now() + 1).toString(), log_id: chatRes.log_id || undefined, role: "bot", text: chatRes.bot_response,
                 timestamp: new Date(),
                 detection: { label: detectRes.label, confidence: detectRes.confidence, explanation: detectRes.explanation, model_used: detectRes.model_used, sub_type: detectRes.sub_type },
                 suggestions: chatRes.suggestions,
@@ -604,10 +623,21 @@ export default function ChatPage() {
                             >
                                 <Send size={17} color="white" />
                             </button>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+                            <p style={{ fontSize: 11, color: "rgba(241,245,249,0.22)" }}>
+                                Messages are analysed by AI · Results for educational purposes only
+                            </p>
+                            {messages.length > 2 && (
+                                <button
+                                    onClick={() => setSurveyOpen(true)}
+                                    style={{
+                                        background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 6,
+                                        padding: "4px 10px", color: "#c4b5fd", fontSize: 11, cursor: "pointer", fontWeight: 600
+                                    }}>
+                                    End Session & Rate
+                                </button>
+                            )}
                         </div>
-                        <p style={{ fontSize: 11, color: "rgba(241,245,249,0.22)", marginTop: 8, textAlign: "center" }}>
-                            Messages are analysed by AI · Results for educational purposes only
-                        </p>
                     </div>
                 </div>
 
@@ -933,6 +963,106 @@ export default function ChatPage() {
                     </div>
                 )}
             </div>
+            </div>
+
+            {/* ─── Survey Modal ────────────────────────────────────────────── */}
+            {surveyOpen && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 999,
+                    background: "rgba(0,0,0,0.7)", backdropFilter: "blur(10px)", display: "flex",
+                    alignItems: "center", justifyContent: "center", padding: "1rem"
+                }}>
+                    <div style={{
+                        background: "#1e293b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16,
+                        boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)", width: "100%", maxWidth: 500,
+                        padding: "2rem", color: "#f1f5f9", position: "relative"
+                    }}>
+                        {!surveyDone ? (
+                            <>
+                                <button onClick={() => setSurveyOpen(false)} style={{
+                                    position: "absolute", top: 16, right: 16, background: "none", border: "none", 
+                                    color: "rgba(255,255,255,0.4)", cursor: "pointer"
+                                }}><X size={20} /></button>
+                                
+                                <h2 style={{ fontSize: "1.3rem", fontWeight: 700, marginBottom: "0.5rem", color: "#a78bfa" }}>
+                                    How was your experience?
+                                </h2>
+                                <p style={{ fontSize: "0.85rem", color: "#94a3b8", marginBottom: "1.5rem" }}>
+                                    Your feedback helps us measure the system's effectiveness and improve supportive responses.
+                                </p>
+
+                                <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
+                                    {[
+                                        { key: "q_overall", label: "Overall Satisfaction with the Chatbot" },
+                                        { key: "q_understanding", label: "The Bot Understood My Situation" },
+                                        { key: "q_detection", label: "Detection Was Accurate" },
+                                        { key: "q_support", label: "Coping Suggestions Were Helpful" },
+                                        { key: "q_return", label: "I Would Use This Again / Recommend It" }
+                                    ].map((q) => (
+                                        <div key={q.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                            <span style={{ fontSize: "0.85rem", color: "#cbd5e1" }}>{q.label}</span>
+                                            <div style={{ display: "flex", gap: "4px" }}>
+                                                {[1, 2, 3, 4, 5].map(star => (
+                                                    <button
+                                                        key={star}
+                                                        onClick={() => setSurveyData(prev => ({ ...prev, [q.key]: star }))}
+                                                        style={{
+                                                            background: "none", border: "none", cursor: "pointer", 
+                                                            fontSize: "1.2rem", padding: "0 2px",
+                                                            color: ((surveyData as any)[q.key] >= star) ? "#facc15" : "rgba(255,255,255,0.1)",
+                                                            transition: "color 0.2s"
+                                                        }}
+                                                    >★</button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    
+                                    <textarea 
+                                        placeholder="Any additional thoughts or feature requests? (Optional)"
+                                        value={surveyData.comment}
+                                        onChange={e => setSurveyData(prev => ({ ...prev, comment: e.target.value }))}
+                                        rows={3}
+                                        style={{
+                                            background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.1)",
+                                            borderRadius: 8, padding: "10px", color: "white", fontSize: "0.85rem",
+                                            marginTop: "0.5rem", resize: "none"
+                                        }}
+                                    />
+                                </div>
+
+                                <button 
+                                    disabled={surveySubmitting || surveyData.q_overall === 0}
+                                    onClick={async () => {
+                                        setSurveySubmitting(true);
+                                        try {
+                                            await submitSurvey({ ...surveyData, user_id: userId || undefined, session_id: activeSessionId || undefined });
+                                            setSurveyDone(true);
+                                            setTimeout(() => { setSurveyOpen(false); startNewChat(); }, 2000);
+                                        } catch (e) {
+                                            alert("Failed to submit survey");
+                                        } finally {
+                                            setSurveySubmitting(false);
+                                        }
+                                    }}
+                                    style={{
+                                        width: "100%", background: surveyData.q_overall === 0 ? "rgba(255,255,255,0.1)" : "linear-gradient(135deg, #7c3aed, #2563eb)",
+                                        color: "white", border: "none", borderRadius: 8, padding: "12px", fontWeight: 700,
+                                        marginTop: "1.5rem", cursor: surveyData.q_overall === 0 ? "not-allowed" : "pointer",
+                                    }}>
+                                    {surveySubmitting ? "Submitting..." : "Submit Feedback"}
+                                </button>
+                            </>
+                        ) : (
+                            <div style={{ textAlign: "center", padding: "2rem 0" }}>
+                                <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎉</div>
+                                <h2 style={{ fontSize: "1.3rem", fontWeight: 700, color: "#34d399", marginBottom: "0.5rem" }}>Thank You!</h2>
+                                <p style={{ fontSize: "0.9rem", color: "#94a3b8" }}>Your ratings have been added to the evaluation metrics.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </AuthGuard>
     );
 }

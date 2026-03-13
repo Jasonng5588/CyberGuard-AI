@@ -142,6 +142,34 @@ CB_PHRASES: List[Tuple[str, str]] = [
     ("goblok", "Indonesian insult"), ("mati sana", "Indonesian death wish"),
     ("sampah masyarakat", "Indonesian dehumanisation"),
     ("naaye", "Tamil insult"), ("punda", "Tamil severe insult"),
+    # Doxxing patterns
+    ("your address is", "doxxing"), ("your phone number is", "doxxing"),
+    ("posting your info", "doxxing"), ("doxxed you", "doxxing"),
+    ("exposing your personal", "doxxing"), ("i know where you live", "doxxing"),
+    ("leaking your info", "doxxing"), ("sharing your details", "doxxing"),
+    ("found your address", "doxxing"), ("i will dox you", "doxxing"),
+    ("putting your info out", "doxxing"),
+    # Trolling patterns
+    ("ratio", "trolling"), ("l + ratio", "trolling"), ("stay mad", "trolling"),
+    ("cope harder", "trolling"), ("touch grass", "trolling"),
+    ("cringe", "trolling"), ("ok boomer", "trolling"),
+    ("triggered much", "trolling"), ("stay salty", "trolling"),
+    ("imagine being this dumb", "trolling"), ("we don't care", "trolling"),
+    # Impersonation patterns
+    ("pretending to be you", "impersonation"), ("fake account of you", "impersonation"),
+    ("catfishing as you", "impersonation"), ("stealing your identity", "impersonation"),
+    ("posting as you", "impersonation"), ("made a fake profile", "impersonation"),
+    ("pretend to be", "impersonation"), ("using your name to", "impersonation"),
+    # Outing patterns
+    ("telling everyone you're gay", "outing"), ("exposing your sexuality", "outing"),
+    ("revealing your secret", "outing"), ("outing you", "outing"),
+    ("telling people about your", "outing"), ("exposing you", "outing"),
+    ("spreading your private", "outing"), ("your secret is out", "outing"),
+    ("everyone knows now", "outing"), ("shared your private", "outing"),
+    # Happy Slapping / humiliation sharing
+    ("sharing the video of you", "happy slapping"), ("posted the video of you", "happy slapping"),
+    ("uploading you getting hit", "happy slapping"), ("viral video of you", "happy slapping"),
+    ("everyone is laughing at the video", "happy slapping"),
 ]
 
 # Offensive phrases
@@ -270,6 +298,12 @@ _CB_CAT_TO_SUBTYPE = {
     "Tamil insult": "Verbal Abuse",
     "Indonesian insult": "Verbal Abuse",
     "Indonesian death wish": "Death Threat",
+    # New sub-types (completing the 8 from the proposal)
+    "doxxing": "Doxxing",
+    "trolling": "Trolling",
+    "impersonation": "Impersonation",
+    "outing": "Outing",
+    "happy slapping": "Happy Slapping",
 }
 
 
@@ -309,6 +343,18 @@ def _classify_sub_type(label: str, meta: dict) -> str:
 
     if "emotional abuse" in cb_cats:
         return "Cyberstalking (Emotional Abuse)"
+
+    # New proposal-required types
+    if "doxxing" in cb_cats:
+        return "Doxxing"
+    if "impersonation" in cb_cats:
+        return "Impersonation"
+    if "outing" in cb_cats:
+        return "Outing"
+    if "trolling" in cb_cats:
+        return "Trolling"
+    if "happy slapping" in cb_cats:
+        return "Happy Slapping"
 
     return "Verbal Abuse"
 
@@ -456,7 +502,7 @@ Output ONLY a JSON object exactly like this:
 {{
   "label": "SAFE" | "OFFENSIVE" | "CYBERBULLYING",
   "confidence": 0.95,
-  "sub_type": "Verbal Abuse" | "Social Exclusion" | "Death Threat" | "Sexual Harassment" | "Cyberstalking" | "None",
+  "sub_type": "Verbal Abuse" | "Social Exclusion" | "Death Threat" | "Sexual Harassment" | "Cyberstalking" | "Doxxing" | "Trolling" | "Impersonation" | "Outing" | "None",
   "explanation": "Brief explanation here"
 }}"""
 

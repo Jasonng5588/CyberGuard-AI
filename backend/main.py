@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager
 from config import settings
 from database.connection import engine
 from database import models
-from routes import detection, chat, logs, analytics, users
+from routes import detection, chat, logs, analytics, users, evaluate
 
 
 @asynccontextmanager
@@ -53,6 +53,7 @@ app.include_router(chat.router, prefix="/api")
 app.include_router(logs.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
+app.include_router(evaluate.router, prefix="/api")
 
 
 # ─── Health Check ─────────────────────────────────────────────────────────────

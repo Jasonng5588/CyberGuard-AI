@@ -360,9 +360,34 @@ def _call_groq(messages: list[dict[str, Any]]) -> Optional[str]:
         return None
 
 
+def _detect_language(text: str) -> str:
+    """Detect the primary language of the user's message using character analysis.
+    Returns a human-readable language name like 'English', 'Chinese', 'Malay'."""
+    # Count CJK characters (Chinese, Japanese, Korean)
+    cjk_count = sum(1 for c in text if '\u4e00' <= c <= '\u9fff' or '\u3400' <= c <= '\u4dbf')
+    total_alpha = sum(1 for c in text if c.isalpha())
+    if total_alpha == 0:
+        return "English"  # fallback for pure punctuation/numbers
+    
+    # If more than 15% CJK characters, it's Chinese
+    if cjk_count / max(len(text), 1) > 0.15:
+        return "Chinese"
+    
+    # Malay/Indonesian keywords
+    malay_words = {"aku", "kamu", "dia", "saya", "awak", "mereka", "kami", "ini", "itu",
+                   "dan", "atau", "dengan", "tidak", "ada", "boleh", "pergi", "makan",
+                   "mak", "bapa", "sekolah", "baik", "jahat", "lah", "leh", "lor", "kan",
+                   "memang", "sangat", "sangat", "sikit", "siapa", "kenapa", "macam"}
+    lower_words = set(text.lower().split())
+    if len(lower_words & malay_words) >= 2:
+        return "Malay"
+    
+    return "English"
+
+
 def _generate_llm_support_response(message: str, label: str, ctx: dict[str, Any], victim_intent: Optional[str] = None, sub_type: str = "None", history: Optional[list[Any]] = None) -> str:
     """Generate a context-aware empathetic response.
-    Chain: Ollama (local) → Gemini (cloud) → Groq (cloud fallback) → rule-based fallback.
+    Chain: Ollama (local) → SambaNova (cloud) → Groq (cloud fallback) → rule-based fallback.
     """
 
     # Build context-specific instructions for the LLM
@@ -384,13 +409,19 @@ Your response MUST:
 3. Include a brief safety-check or caring follow-up question
 """
 
+    # Detect user language BEFORE building system prompt
+    user_language = _detect_language(message)
+
     system_prompt = f"""You are 'CyberGuard AI', a warm, empathetic support chatbot for cyberbullying victims.
 System classified the current message as: {label}
 {support_context}
+===LANGUAGE RULE (NON-NEGOTIABLE)===
+The user's language is: {user_language}
+You MUST write your ENTIRE response in {user_language} only.
+Do NOT use any other language. Do NOT mix languages. Every single word must be in {user_language}.
+=====================================
 Write exactly 2-4 sentences of empathetic support addressing the user directly.
-- **CRITICAL**: YOU MUST REPLY IN THE EXACT SAME LANGUAGE AS THE USER'S MESSAGE. If the user speaks in English, YOU MUST REPLY IN PLAIN ENGLISH. If Chinese, reply in Chinese. If Malay, reply in Malay.
-- Do NOT mix languages. Do NOT use Manglish or Malaysian slang unless the user explicitly uses it first.
-- Use natural Gen Z language (e.g., "protect your peace", "you matter", "real talk") if replying in English, or equivalent natural tone in the target language.
+- Use a natural, warm tone appropriate for {user_language} speakers.
 - Be WARM and CARING, like a supportive older sibling or school counsellor.
 - Listen to the user's previous context and have a flow of conversation. Respond to what they said intelligently.
 - If the message is SAFE but they are sharing a struggle (e.g., sad, stressed, tired), VALIDATE their feelings and give empathetic advice. Do NOT just say it's safe.

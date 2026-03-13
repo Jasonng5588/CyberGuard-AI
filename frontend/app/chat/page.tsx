@@ -91,16 +91,18 @@ export default function ChatPage() {
         const initChat = async () => {
             const supabase = createClient();
             const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                let uid: number | null = user.user_metadata?.db_id ?? null;
-                if (!uid && user.email) {
-                    try {
-                        const username = user.email.split("@")[0];
-                        const backendUser = await syncUser(user.email, username);
-                        uid = backendUser.id;
-                        await supabase.auth.updateUser({ data: { db_id: uid } });
-                    } catch { /* backend offline */ }
-                }
+            if (user && user.email) {
+                let uid: number | null = null;
+                try {
+                    // Always sync by email — backend is the source of truth for user_id.
+                    // This prevents stale db_id in Supabase metadata from hiding old chats.
+                    const username = user.email.split("@")[0];
+                    const backendUser = await syncUser(user.email, username);
+                    uid = backendUser.id;
+                    // Keep metadata in sync (fire-and-forget, don't block if it fails)
+                    supabase.auth.updateUser({ data: { db_id: uid } }).catch(() => {});
+                } catch { /* backend offline */ }
+
                 if (uid) {
                     setUserId(uid);
                     try {

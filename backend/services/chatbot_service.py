@@ -20,8 +20,9 @@ from typing import Optional, Any
 
 # ─── Startup: check environment ──────────────────────────────────────────────
 _GROQ_KEY = os.environ.get("GROQ_API_KEY", "")
-_IS_DEPLOYED = bool(_GROQ_KEY)  # If GROQ key is set, we're in a deployed environment
-print(f"[Chatbot] GROQ_API_KEY set: {bool(_GROQ_KEY)} | Deployed mode: {_IS_DEPLOYED}")
+_GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
+_IS_DEPLOYED = bool(_GROQ_KEY or _GEMINI_KEY)  # If any cloud key is set, we're deployed
+print(f"[Chatbot] GEMINI_API_KEY set: {bool(_GEMINI_KEY)} | GROQ_API_KEY set: {bool(_GROQ_KEY)} | Deployed mode: {_IS_DEPLOYED}")
 
 
 
@@ -277,8 +278,47 @@ def _call_ollama(messages: list[dict[str, Any]]) -> Optional[str]:
         return None
 
 
+def _call_gemini(messages: list[dict[str, Any]]) -> Optional[str]:
+    """Try Google Gemini API (gemini-2.0-flash). Primary cloud provider — works from Render."""
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        print("[Gemini] GEMINI_API_KEY not set — skipping")
+        return None
+    data = {
+        "model": "gemini-2.0-flash",
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": 350,
+    }
+    try:
+        payload = json.dumps(data).encode("utf-8")
+        req = urllib.request.Request(
+            "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+            },
+        )
+        print(f"[Gemini] Sending request (model: gemini-2.0-flash, msgs: {len(messages)})")
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            body = resp.read().decode()
+            result = json.loads(body)
+            content = result["choices"][0]["message"]["content"].strip().strip('"').strip()
+            print(f"[Gemini] ✅ Success — response length: {len(content)} chars")
+            return content
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode() if hasattr(e, 'read') else 'N/A'
+        print(f"[Gemini] ❌ HTTP {e.code} error: {error_body}")
+        return None
+    except Exception as e:
+        print(f"[Gemini] ❌ API call failed: {type(e).__name__}: {e}")
+        traceback.print_exc()
+        return None
+
+
 def _call_groq(messages: list[dict[str, Any]]) -> Optional[str]:
-    """Try Groq cloud API (llama-3.1-8b-instant). Returns None if key missing or fails."""
+    """Try Groq cloud API (llama-3.1-8b-instant). Secondary fallback — may be blocked on some hosts."""
     api_key = os.environ.get("GROQ_API_KEY", "")
     if not api_key:
         print("[Groq] GROQ_API_KEY not set — skipping")
@@ -299,7 +339,7 @@ def _call_groq(messages: list[dict[str, Any]]) -> Optional[str]:
                 "Authorization": f"Bearer {api_key}",
             },
         )
-        print(f"[Groq] Sending request to Groq API (model: llama-3.1-8b-instant, msgs: {len(messages)})")
+        print(f"[Groq] Sending request (model: llama-3.1-8b-instant, msgs: {len(messages)})")
         with urllib.request.urlopen(req, timeout=30) as resp:
             body = resp.read().decode()
             result = json.loads(body)
@@ -318,7 +358,7 @@ def _call_groq(messages: list[dict[str, Any]]) -> Optional[str]:
 
 def _generate_llm_support_response(message: str, label: str, ctx: dict[str, Any], victim_intent: Optional[str] = None, sub_type: str = "None", history: Optional[list[Any]] = None) -> str:
     """Generate a context-aware empathetic response.
-    Chain: Ollama (local) → Groq API (cloud) → smart rule-based fallback.
+    Chain: Ollama (local) → Gemini (cloud) → Groq (cloud fallback) → rule-based fallback.
     """
 
     # Build context-specific instructions for the LLM
@@ -363,7 +403,12 @@ Write exactly 2-4 sentences of empathetic support addressing the user directly.
     if result:
         return result
 
-    # Tier 2: Groq cloud API (deployed environments)
+    # Tier 2: Google Gemini (primary cloud — works from Render)
+    result = _call_gemini(messages)
+    if result:
+        return result
+
+    # Tier 3: Groq cloud API (secondary fallback — may be blocked on some hosts)
     result = _call_groq(messages)
     if result:
         return result

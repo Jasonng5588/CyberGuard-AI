@@ -434,8 +434,9 @@ import urllib.error
 from typing import Optional
 
 _GROQ_KEY = os.environ.get("GROQ_API_KEY", "")
-_IS_DEPLOYED = bool(_GROQ_KEY)
-print(f"[Detection] GROQ_API_KEY set: {bool(_GROQ_KEY)} | Deployed mode: {_IS_DEPLOYED}")
+_GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
+_IS_DEPLOYED = bool(_GROQ_KEY or _GEMINI_KEY)
+print(f"[Detection] GEMINI_API_KEY set: {bool(_GEMINI_KEY)} | GROQ_API_KEY set: {bool(_GROQ_KEY)} | Deployed mode: {_IS_DEPLOYED}")
 
 
 def _build_detection_prompt(text: str) -> str:
@@ -491,8 +492,62 @@ def ollama_detect(text: str) -> Optional[dict]:
         return None
 
 
+def gemini_detect(text: str) -> Optional[dict]:
+    """Call Google Gemini API for context-aware classification. Primary cloud provider — works from Render."""
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        print("[Gemini Detection] GEMINI_API_KEY not set — skipping")
+        return None
+
+    prompt = _build_detection_prompt(text)
+    data = {
+        "model": "gemini-2.0-flash",
+        "messages": [
+            {"role": "system", "content": "You are a strict JSON classification API. Output ONLY valid JSON, no markdown, no explanation."},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.0,
+        "max_tokens": 200,
+    }
+
+    try:
+        payload = json.dumps(data).encode("utf-8")
+        req = urllib.request.Request(
+            "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+            },
+        )
+        print(f"[Gemini Detection] Sending classification request...")
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            body = resp.read().decode()
+            result = json.loads(body)
+            content = result["choices"][0]["message"]["content"].strip()
+            # Strip markdown code fences if present
+            if content.startswith("```"):
+                content = content.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+            parsed = json.loads(content)
+
+            # Basic validation
+            if parsed.get("label") not in ("SAFE", "OFFENSIVE", "CYBERBULLYING"):
+                print(f"[Gemini Detection] ⚠️ Invalid label: {parsed.get('label')}")
+                return None
+            print(f"[Gemini Detection] ✅ Result: {parsed.get('label')} ({parsed.get('confidence')})")
+            return parsed
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode() if hasattr(e, 'read') else 'N/A'
+        print(f"[Gemini Detection] ❌ HTTP {e.code} error: {error_body}")
+        return None
+    except Exception as e:
+        print(f"[Gemini Detection] ❌ Failed: {type(e).__name__}: {e}")
+        traceback.print_exc()
+        return None
+
+
 def groq_detect(text: str) -> Optional[dict]:
-    """Call Groq cloud API for context-aware classification. Fallback when Ollama is unavailable."""
+    """Call Groq cloud API for classification. Secondary fallback — may be blocked on some hosts."""
     api_key = os.environ.get("GROQ_API_KEY", "")
     if not api_key:
         print("[Groq Detection] GROQ_API_KEY not set — skipping")
@@ -594,9 +649,12 @@ def detect_cyberbullying(text: str) -> dict:
     # 1. Gather context from our local rule base (useful for chatbot context)
     kw_label, kw_conf, kw_meta = keyword_detect(cleaned)
 
-    # 2. Try LLM detection: Ollama (local) → Groq (cloud)
+    # 2. Try LLM detection: Ollama (local) → Gemini (cloud) → Groq (cloud fallback)
     llm_result = ollama_detect(cleaned)
     model_used_llm = "phi3:mini"
+    if not llm_result:
+        llm_result = gemini_detect(cleaned)
+        model_used_llm = "gemini-2.0-flash"
     if not llm_result:
         llm_result = groq_detect(cleaned)
         model_used_llm = "groq-llama-3.1-8b"

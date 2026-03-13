@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Shield, Menu, X, User, LogOut, LayoutDashboard, MessageCircle, Home } from "lucide-react";
+import { Shield, Menu, X, User, LogOut, LayoutDashboard, MessageCircle, Home, Heart, BookOpen } from "lucide-react";
 import { useState, useEffect } from "react";
 import { AuthModal } from "./AuthModal";
 import { createClient } from "@/lib/supabase";
@@ -9,6 +9,8 @@ import { createClient } from "@/lib/supabase";
 const links = [
     { href: "/", label: "Home", icon: <Home size={15} /> },
     { href: "/chat", label: "Chat", icon: <MessageCircle size={15} /> },
+    { href: "/learn", label: "Learn", icon: <BookOpen size={15} /> },
+    { href: "/support", label: "Support", icon: <Heart size={15} /> },
     { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={15} /> },
 ];
 

@@ -7,10 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 
-from .config import settings
-from .database.connection import engine
-from .database import models
-from .routes import detection, chat, logs, analytics, users
+from config import settings
+from database.connection import engine
+from database import models
+from routes import detection, chat, logs, analytics, users
 
 
 @asynccontextmanager

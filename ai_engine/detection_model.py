@@ -79,9 +79,9 @@ def transformer_classify(text: str, model_name: str = "martin-ha/toxic-comment-m
 # ─── Full Detection Pipeline ─────────────────────────────────────────────────
 
 EXPLANATIONS = {
-    "SAFE": "✅ This message does not contain harmful or offensive language.",
-    "OFFENSIVE": "⚠️  This message contains potentially offensive language.",
-    "CYBERBULLYING": "🚨 This message contains language consistent with cyberbullying.",
+    "SAFE": " This message does not contain harmful or offensive language.",
+    "OFFENSIVE": "  This message contains potentially offensive language.",
+    "CYBERBULLYING": " This message contains language consistent with cyberbullying.",
 }
 
 RISK_SCORES = {"SAFE": 0.0, "OFFENSIVE": 0.5, "CYBERBULLYING": 1.0}
@@ -131,7 +131,7 @@ def run_tests(use_transformer: bool = False):
     correct = 0
     for text, expected in TEST_CASES:
         result = analyze(text, use_transformer=use_transformer)
-        status = "✅" if result["label"] == expected else "❌"
+        status = "" if result["label"] == expected else ""
         if result["label"] == expected:
             correct += 1
         print(f"\n{status} Text: {text[:50]}...")

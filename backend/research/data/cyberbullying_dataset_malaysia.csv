@@ -1,0 +1,144 @@
+text,label,type
+"you are so bodoh",1,insult
+"have a great day everyone!",0,safe
+"go die la babi",1,death_threat
+"this food is sedap gila",0,safe
+"why you so fat? like babi only",1,body_shaming
+"cant wait for the weekend",0,safe
+"ur face looks like pontianak srsly",1,insult
+"good morning lovely people",0,safe
+"nobody likes u, just disappear la",1,suicidal_incitement
+"the weather is so hot today aduh",0,safe
+"anjing betul perangai kau ni",1,insult
+"happy birthday bro! have a blast",0,safe
+"you look so ugly in this pic eungh",1,body_shaming
+"just finished gym, feeling great",0,safe
+"pukimak punya budak, delete your account",1,insult
+"let's go mamak tonight?",0,safe
+"so stupid, how did you even pass?",1,insult
+"love your new dress, very cantik!",0,safe
+"kill yourself u worthless trash",1,death_threat
+"what time is the movie starting",0,safe
+"anak haram go away",1,insult
+"this song is stuck in my head",0,safe
+"fatty boom boom, stop eating la babi",1,body_shaming
+"thanks for helping me with the assignment",0,safe
+"bodoh sial, don't talk to me",1,insult
+"going on a road trip tomorrow!",0,safe
+"you are a disgrace to your family",1,insult
+"just bought a new phone, yay",0,safe
+"kimak kau, u deserve to die",1,death_threat
+"don't forget to drink water",0,safe
+"why your skin so dark? like charcoal",1,racism
+"the sunset was beautiful today",0,safe
+"lu memang babi, balik china la",1,racism
+"enjoying my coffee this morning",0,safe
+"keling pui, don't come near me",1,racism
+"cute cat video omg",0,safe
+"such a whore, showing off body only",1,sexual_harassment
+"congratulations on your graduation!",0,safe
+"cheap slut, how much?",1,sexual_harassment
+"the traffic is terrible today",0,safe
+"i hope you get into an accident and die",1,death_threat
+"looking forward to dinner",0,safe
+"no one will ever love an ugly pig like u",1,body_shaming
+"good luck on your exams!",0,safe
+"fucking lanciao face",1,insult
+"i love playing this game",0,safe
+"u so gay wtf eww",1,insult
+"beautiful artwork, very talented",0,safe
+"i will find you and kill u",1,death_threat
+"this weather is making me sleepy",0,safe
+"dont act smart la bodoh",1,insult
+"great job on the presentation",0,safe
+"perangai macam setan",1,insult
+"have you tried the new cafe?",0,safe
+"your mother is a bitch",1,insult
+"good night guys",0,safe
+"go kill yourself, world would be better",1,suicidal_incitement
+"i am so tired today",0,safe
+"muka macam pecah rumah",1,insult
+"happy anniversary to my parents",0,safe
+"you don't belong here, just leave",1,exclusion
+"can't wait to see you!",0,safe
+"we are making a group without you, nobody wants u",1,exclusion
+"just watching some netflix",0,safe
+"stop acting like a victim u idiot",1,insult
+"that joke was so funny",0,safe
+"babi punya cina",1,racism
+"this pizza is the best",0,safe
+"melayu malas gila",1,racism
+"feeling so productive today",0,safe
+"india keling busuk",1,racism
+"nice meeting you yesterday",0,safe
+"you are the reason why we lost bodoh",1,insult
+"beautiful morning walk",0,safe
+"die in hell babi",1,death_threat
+"i passed my driving test!",0,safe
+"such a crybaby, man up la",1,insult
+"this book is so interesting",0,safe
+"you look so skinny like skeleton",1,body_shaming
+"enjoying the holiday",0,safe
+"don't wear that, you look fat AF",1,body_shaming
+"had a great time with friends",0,safe
+"you are so annoying shut up",1,insult
+"the stars look amazing tonight",0,safe
+"nobody cares about your opinion",1,insult
+"just finished cooking dinner",0,safe
+"you are pathetic and weak",1,insult
+"so proud of my little sister",0,safe
+"i hope you get cancer and die",1,death_threat
+"can anyone recommend a good movie?",0,safe
+"jump off a building pls",1,suicidal_incitement
+"feeling a bit under the weather",0,safe
+"u suck at this, quit already",1,insult
+"happy belated birthday!",0,safe
+"ur voice is so annoying",1,insult
+"this gym session was tough",0,safe
+"u are a mistake",1,insult
+"wishing everyone a peaceful weekend",0,safe
+"go back to your country",1,racism
+"new recipe turned out great",0,safe
+"you look like a retard",1,insult
+"excited for the upcoming concert",0,safe
+"kill yourself nobody cares",1,suicidal_incitement
+"just planted some new flowers",0,safe
+"you are useless to society",1,insult
+"enjoy your vacation!",0,safe
+"whore behaviour",1,sexual_harassment
+"what a beautiful day",0,safe
+"so fat until chair break ah?",1,body_shaming
+"the view from here is stunning",0,safe
+"mati la kau babi hutan",1,death_threat
+"congrats on the promotion!",0,safe
+"puki mak kau",1,insult
+"so happy for you both",0,safe
+"you are the ugliest person i know",1,body_shaming
+"this cake is delicious",0,safe
+"kill u later",1,death_threat
+"have a safe flight",0,safe
+"nobody loves u",1,suicidal_incitement
+"just read a very inspiring article",0,safe
+"bitch please",1,insult
+"the new album is fire",0,safe
+"so stupid like cow",1,insult
+"great workout today",0,safe
+"u are an embarrassment",1,insult
+"nice to see you again",0,safe
+"go die la sial",1,suicidal_incitement
+"thank you for everything",0,safe
+"you look terrible today",1,body_shaming
+"good morning world",0,safe
+"i will hunt you down babi",1,death_threat
+"so proud of your achievements",0,safe
+"dont show your face here again",1,exclusion
+"beautiful dress",0,safe
+"you are a complete failure",1,insult
+"had a relaxing day",0,safe
+"babi",1,insult
+"kimak",1,insult
+"lanciao la u",1,insult
+"i love ice cream",0,safe
+"cant even do simple math, so bodoh",1,insult
+"this game is fun",0,safe
+"ur mom gay",1,insult

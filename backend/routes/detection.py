@@ -4,10 +4,10 @@ Analyze text for cyberbullying
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from ..database.connection import get_db
-from ..database.models import User, Message, Detection
-from ..models.schemas import DetectRequest, DetectResponse
-from ..services.detection_service import detect_cyberbullying
+from database.connection import get_db
+from database.models import User, Message, Detection
+from models.schemas import DetectRequest, DetectResponse
+from services.detection_service import detect_cyberbullying
 
 router = APIRouter(prefix="/detect", tags=["Detection"])
 

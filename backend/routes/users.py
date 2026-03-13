@@ -4,9 +4,9 @@ User management
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from ..database.connection import get_db
-from ..database.models import User
-from ..models.schemas import UserCreate, UserResponse
+from database.connection import get_db
+from database.models import User
+from models.schemas import UserCreate, UserResponse
 from typing import List
 
 router = APIRouter(prefix="/users", tags=["Users"])

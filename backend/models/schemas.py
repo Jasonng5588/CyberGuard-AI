@@ -58,6 +58,14 @@ class ChatResponse(BaseModel):
     log_id: Optional[int]
     session_id: Optional[str] = None
     emotion_detected: Optional[str] = None   # kept for backward-compat
+    support_phase: Optional[str] = None      # detection | emotional_support | crisis_support | mild_support
+    coping_strategy: Optional[dict] = None   # {immediate, coping, resource} per sub_type
+
+
+class SupportRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=5000, example="I need help, I'm being bullied")
+    user_id: Optional[int] = Field(None, example=1)
+    session_id: Optional[str] = Field(None)
 
 
 # ─── Log Schemas ──────────────────────────────────────────────────────────────

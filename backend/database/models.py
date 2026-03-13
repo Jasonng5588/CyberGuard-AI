@@ -4,7 +4,7 @@ SQLAlchemy ORM Models
 from sqlalchemy import Column, Integer, String, Float, Boolean, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from .connection import Base
+from database.connection import Base
 
 
 class User(Base):

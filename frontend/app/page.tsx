@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
   ArrowRight, Brain, MessageCircle, BarChart3, Zap, Lock,
-  Heart, Shield, Sparkles,
+  Heart, Shield, Sparkles, CheckCircle2, AlertTriangle, Siren,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { AuthModal } from "@/components/AuthModal";
@@ -20,9 +20,9 @@ const FEATURES = [
 ];
 
 const CATEGORIES = [
-  { label: "SAFE", emoji: "✅", color: "#34d399", bg: "rgba(52,211,153,0.07)", border: "rgba(52,211,153,0.20)", glow: "rgba(52,211,153,0.15)", desc: "Friendly, neutral, or positive messages with no harmful intent." },
-  { label: "OFFENSIVE", emoji: "⚠️", color: "#fbbf24", bg: "rgba(251,191,36,0.07)", border: "rgba(251,191,36,0.20)", glow: "rgba(251,191,36,0.15)", desc: "Rude or insensitive content that may be hurtful but not direct bullying." },
-  { label: "CYBERBULLYING", emoji: "🚨", color: "#f87171", bg: "rgba(248,113,113,0.07)", border: "rgba(248,113,113,0.20)", glow: "rgba(248,113,113,0.15)", desc: "Direct harassment, threats, or targeted abuse. Immediate support triggered." },
+  { label: "SAFE", icon: <CheckCircle2 size={30} color="#34d399" />, color: "#34d399", bg: "rgba(52,211,153,0.07)", border: "rgba(52,211,153,0.20)", glow: "rgba(52,211,153,0.15)", desc: "Friendly, neutral, or positive messages with no harmful intent." },
+  { label: "OFFENSIVE", icon: <AlertTriangle size={30} color="#fbbf24" />, color: "#fbbf24", bg: "rgba(251,191,36,0.07)", border: "rgba(251,191,36,0.20)", glow: "rgba(251,191,36,0.15)", desc: "Rude or insensitive content that may be hurtful but not direct bullying." },
+  { label: "CYBERBULLYING", icon: <Siren size={30} color="#f87171" />, color: "#f87171", bg: "rgba(248,113,113,0.07)", border: "rgba(248,113,113,0.20)", glow: "rgba(248,113,113,0.15)", desc: "Direct harassment, threats, or targeted abuse. Immediate support triggered." },
 ];
 
 const CSS_INJECT = `
@@ -185,7 +185,7 @@ export default function HomePage() {
               <Brain size={14} color="white" />
             </div>
             <div className="chat-bubble-bot" style={{ padding: "10px 15px", fontSize: 14, color: "rgba(241,245,249,0.85)" }}>
-              I'm really sorry you experienced that. You deserve to be treated with respect and kindness. 💙
+              I'm really sorry you experienced that. You deserve to be treated with respect and kindness. 
             </div>
           </div>
         </div>
@@ -209,7 +209,7 @@ export default function HomePage() {
               borderRadius: 20, padding: 28,
               boxShadow: `0 8px 32px rgba(0,0,0,0.2), 0 0 0 1px ${c.border}`,
             }}>
-              <div style={{ fontSize: 30, marginBottom: 14 }}>{c.emoji}</div>
+              <div style={{ marginBottom: 14 }}>{c.icon}</div>
               <div style={{
                 color: c.color, fontSize: 12, fontWeight: 800,
                 letterSpacing: "0.1em", marginBottom: 12,

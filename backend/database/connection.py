@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
-from ..config import settings
+from config import settings
 
 # SQLite needs check_same_thread=False; PostgreSQL uses connection pooling
 if settings.DATABASE_URL.startswith("sqlite"):

@@ -7,9 +7,9 @@ import {
 } from "recharts";
 import {
     MessageSquare, AlertTriangle, Shield, TrendingUp,
-    RefreshCw, Clock, Users, Info
+    RefreshCw, Clock, Users, Info, Download
 } from "lucide-react";
-import { getAnalytics, AnalyticsData, syncUser } from "@/lib/api";
+import { getAnalytics, AnalyticsData, syncUser, exportChatHistory } from "@/lib/api";
 import { AuthGuard } from "@/components/AuthGuard";
 import { createClient } from "@/lib/supabase";
 
@@ -67,7 +67,16 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [lastRefresh, setLastRefresh] = useState(new Date());
+    const [userId, setUserId] = useState<number | null>(null);
+    const [exporting, setExporting] = useState(false);
     const supabase = createClient();
+
+    const handleExport = async () => {
+        if (!userId) return;
+        setExporting(true);
+        try { await exportChatHistory(userId); } catch { /* silent */ }
+        finally { setExporting(false); }
+    };
 
     const fetchData = async () => {
         setLoading(true); setError(null);
@@ -80,6 +89,9 @@ export default function DashboardPage() {
             }
 
             let dbId = user.user_metadata?.db_id;
+            if (dbId) {
+                setUserId(dbId);
+            }
 
             // Fallback: if db_id is missing, fetch/sync via email
             if (!dbId && user.email) {
@@ -88,6 +100,7 @@ export default function DashboardPage() {
                     const backendUser = await syncUser(user.email, username);
                     dbId = backendUser.id;
                     await supabase.auth.updateUser({ data: { db_id: dbId } });
+                    setUserId(dbId);
                 } catch (e) {
                     console.error("Failed to sync user:", e);
                 }
@@ -135,6 +148,17 @@ export default function DashboardPage() {
                     }}>
                         <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
                         Refresh
+                    </button>
+                    <button onClick={handleExport} disabled={exporting || !userId} style={{
+                        display: "flex", alignItems: "center", gap: 7, padding: "9px 20px",
+                        background: "rgba(52,211,153,0.07)",
+                        backdropFilter: "blur(14px)",
+                        border: "1px solid rgba(52,211,153,0.22)",
+                        borderRadius: 11, fontSize: 13, color: "#34d399", cursor: !userId ? "not-allowed" : "pointer",
+                        transition: "all 0.2s", fontFamily: "inherit",
+                    }}>
+                        <Download size={13} />
+                        {exporting ? "Exporting..." : "Export CSV"}
                     </button>
                 </div>
 

@@ -3,9 +3,9 @@
 import { useState, useRef, useEffect } from "react";
 import {
     Send, Trash2, Brain, User, Shield, AlertTriangle, CheckCircle,
-    Info, Copy, Tag, MessageSquare, Plus, MessageCircle, Menu, X
+    Info, Copy, Tag, MessageSquare, Plus, MessageCircle, Menu, X, ThumbsUp, ThumbsDown
 } from "lucide-react";
-import { detectMessage, sendChatMessage, getUserChatSessions, getSessionHistory, deleteSession, ChatSessionPreview, LogEntry, syncUser } from "@/lib/api";
+import { detectMessage, sendChatMessage, getUserChatSessions, getSessionHistory, deleteSession, ChatSessionPreview, LogEntry, syncUser, submitFeedback } from "@/lib/api";
 import { AuthGuard } from "@/components/AuthGuard";
 import { createClient } from "@/lib/supabase";
 
@@ -80,6 +80,7 @@ export default function ChatPage() {
     const [isMobile, setIsMobile] = useState(false);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [userId, setUserId] = useState<number | null>(null);
+    const [feedbackState, setFeedbackState] = useState<Record<string, "up" | "down" | null>>({});
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -186,7 +187,7 @@ export default function ChatPage() {
         } catch {
             setMessages((prev) => [...prev, {
                 id: (Date.now() + 1).toString(), role: "bot",
-                text: "⚠️ Cannot connect to backend. Make sure FastAPI is running on port 8000.",
+                text: " Cannot connect to backend. Make sure FastAPI is running on port 8000.",
                 timestamp: new Date(),
             }]);
         } finally { setLoading(false); }
@@ -450,6 +451,48 @@ export default function ChatPage() {
                                             {m.text}
                                         </div>
 
+                                        {/* Feedback buttons for bot messages */}
+                                        {m.role === "bot" && m.id && (
+                                            <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
+                                                <span style={{ fontSize: 10, color: "rgba(241,245,249,0.25)", marginRight: 4 }}>Helpful?</span>
+                                                <button
+                                                    onClick={async () => {
+                                                        setFeedbackState(prev => ({ ...prev, [m.id]: "up" }));
+                                                        try { await submitFeedback(parseInt(m.id.replace(/\D/g, "") || "0"), true); } catch { /* silent */ }
+                                                    }}
+                                                    disabled={feedbackState[m.id] != null}
+                                                    style={{
+                                                        background: feedbackState[m.id] === "up" ? "rgba(52,211,153,0.15)" : "transparent",
+                                                        border: feedbackState[m.id] === "up" ? "1px solid rgba(52,211,153,0.4)" : "1px solid rgba(255,255,255,0.08)",
+                                                        borderRadius: 8, padding: "2px 8px", cursor: feedbackState[m.id] ? "default" : "pointer",
+                                                        display: "flex", alignItems: "center", gap: 4,
+                                                        transition: "all 0.2s",
+                                                    }}>
+                                                    <ThumbsUp size={11} color={feedbackState[m.id] === "up" ? "#34d399" : "rgba(241,245,249,0.35)"} />
+                                                    <span style={{ fontSize: 10, color: feedbackState[m.id] === "up" ? "#34d399" : "rgba(241,245,249,0.35)" }}>Yes</span>
+                                                </button>
+                                                <button
+                                                    onClick={async () => {
+                                                        setFeedbackState(prev => ({ ...prev, [m.id]: "down" }));
+                                                        try { await submitFeedback(parseInt(m.id.replace(/\D/g, "") || "0"), false); } catch { /* silent */ }
+                                                    }}
+                                                    disabled={feedbackState[m.id] != null}
+                                                    style={{
+                                                        background: feedbackState[m.id] === "down" ? "rgba(248,113,113,0.15)" : "transparent",
+                                                        border: feedbackState[m.id] === "down" ? "1px solid rgba(248,113,113,0.4)" : "1px solid rgba(255,255,255,0.08)",
+                                                        borderRadius: 8, padding: "2px 8px", cursor: feedbackState[m.id] ? "default" : "pointer",
+                                                        display: "flex", alignItems: "center", gap: 4,
+                                                        transition: "all 0.2s",
+                                                    }}>
+                                                    <ThumbsDown size={11} color={feedbackState[m.id] === "down" ? "#f87171" : "rgba(241,245,249,0.35)"} />
+                                                    <span style={{ fontSize: 10, color: feedbackState[m.id] === "down" ? "#f87171" : "rgba(241,245,249,0.35)" }}>No</span>
+                                                </button>
+                                                {feedbackState[m.id] && (
+                                                    <span style={{ fontSize: 10, color: "rgba(241,245,249,0.3)", marginLeft: 4 }}>Thanks for your feedback! </span>
+                                                )}
+                                            </div>
+                                        )}
+
                                         {/* Detection badge */}
                                         {m.role === "user" && m.detection && (
                                             <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -566,7 +609,7 @@ export default function ChatPage() {
                     </div>
                 </div>
 
-                {/* ─── RIGHT: Detection Panel ──────────────────────────────────── */}
+                {/* ─── RIGHT: Context-Aware Support & Detection Panel ─────────── */}
                 <div style={{
                     width: isMobile ? "100%" : 350, flexShrink: 0,
                     display: "flex", flexDirection: "column",
@@ -584,16 +627,23 @@ export default function ChatPage() {
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                             <div style={{
                                 width: 28, height: 28, borderRadius: 8,
-                                background: "rgba(124,58,237,0.15)",
+                                background: latest?.detection?.label === "CYBERBULLYING" ? "rgba(248,113,113,0.15)" : latest?.detection?.label === "OFFENSIVE" ? "rgba(251,191,36,0.15)" : "rgba(124,58,237,0.15)",
                                 backdropFilter: "blur(10px)",
-                                border: "1px solid rgba(139,92,246,0.25)",
+                                border: latest?.detection?.label === "CYBERBULLYING" ? "1px solid rgba(248,113,113,0.25)" : latest?.detection?.label === "OFFENSIVE" ? "1px solid rgba(251,191,36,0.25)" : "1px solid rgba(139,92,246,0.25)",
                                 display: "flex", alignItems: "center", justifyContent: "center",
                             }}>
-                                <Shield size={14} color="#a78bfa" />
+                                {latest?.detection?.label === "CYBERBULLYING" || latest?.detection?.label === "OFFENSIVE"
+                                    ? <Shield size={14} color={latest?.detection?.label === "CYBERBULLYING" ? "#f87171" : "#fbbf24"} />
+                                    : <Shield size={14} color="#a78bfa" />
+                                }
                             </div>
                             <div>
-                                <h2 style={{ fontSize: 15, fontWeight: 700, color: "#f1f5f9" }}>Detection Panel</h2>
-                                <p style={{ fontSize: 12, color: "rgba(241,245,249,0.35)" }}>Real-time AI analysis results</p>
+                                <h2 style={{ fontSize: 15, fontWeight: 700, color: "#f1f5f9" }}>
+                                    {latest?.detection?.label === "CYBERBULLYING" ? "Victim Support" : latest?.detection?.label === "OFFENSIVE" ? "Support & Info" : "Detection Panel"}
+                                </h2>
+                                <p style={{ fontSize: 12, color: "rgba(241,245,249,0.35)" }}>
+                                    {latest?.detection?.label === "CYBERBULLYING" ? "We're here to help you" : latest?.detection?.label === "OFFENSIVE" ? "Resources & guidance" : "Real-time AI analysis results"}
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -611,11 +661,31 @@ export default function ChatPage() {
                                 }}>
                                     <Shield size={24} color="rgba(167,139,250,0.55)" />
                                 </div>
-                                <p style={{ color: "rgba(241,245,249,0.4)", fontSize: 13 }}>Send a message to see detection results here</p>
+                                <p style={{ color: "rgba(241,245,249,0.4)", fontSize: 13 }}>Send a message to see analysis and support here</p>
                             </div>
                         ) : (
                             <>
-                                {/* Label card */}
+                                {/* ─── CRISIS BANNER (Death Threats / Suicidal) ─── */}
+                                {latest.detection?.label === "CYBERBULLYING" && latest.detection?.sub_type && (
+                                    latest.detection.sub_type.includes("Death") || latest.detection.sub_type.includes("Suicidal")
+                                ) && (
+                                    <div style={{
+                                        background: "rgba(248,113,113,0.1)",
+                                        border: "1px solid rgba(248,113,113,0.3)",
+                                        borderRadius: 14, padding: "12px 14px",
+                                        display: "flex", alignItems: "center", gap: 10,
+                                    }}>
+                                        <AlertTriangle size={18} color="#f87171" style={{ flexShrink: 0 }} />
+                                        <div>
+                                            <p style={{ color: "#f87171", fontSize: 13, fontWeight: 700, marginBottom: 2 }}>Crisis Support</p>
+                                            <p style={{ color: "rgba(241,245,249,0.6)", fontSize: 12, lineHeight: 1.5 }}>
+                                                If you&apos;re in danger, call <strong>999</strong> or Befrienders KL: <strong>03-7627 2929</strong> (24/7)
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* ─── Detection Result Card ─── */}
                                 <div style={{
                                     ...PANEL_STYLE[latest.detection!.label],
                                     borderRadius: 14, padding: 18, textAlign: "center",
@@ -668,7 +738,24 @@ export default function ChatPage() {
                                     </div>
                                 </div>
 
-                                {/* AI Explanation */}
+                                {/* ─── Emotional Support Card (CYBERBULLYING / OFFENSIVE) ─── */}
+                                {(latest.detection?.label === "CYBERBULLYING" || latest.detection?.label === "OFFENSIVE") && (
+                                    <div style={{
+                                        background: "rgba(124,58,237,0.08)",
+                                        backdropFilter: "blur(14px)",
+                                        border: "1px solid rgba(139,92,246,0.2)",
+                                        borderRadius: 14, padding: 14,
+                                    }}>
+                                        <div style={{ fontSize: 11, color: "rgba(167,139,250,0.7)", marginBottom: 8, display: "flex", alignItems: "center", gap: 5, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>
+                                             Emotional Support
+                                        </div>
+                                        <p style={{ fontSize: 13, color: "rgba(241,245,249,0.82)", lineHeight: 1.7 }}>
+                                            {latest.text}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* ─── AI Explanation (always shown) ─── */}
                                 <div style={{
                                     background: "rgba(255,255,255,0.04)",
                                     backdropFilter: "blur(14px)",
@@ -683,22 +770,47 @@ export default function ChatPage() {
                                     </p>
                                 </div>
 
-                                {/* Bot response */}
-                                <div style={{
-                                    background: "rgba(124,58,237,0.08)",
-                                    backdropFilter: "blur(14px)",
-                                    border: "1px solid rgba(139,92,246,0.18)",
-                                    borderRadius: 14, padding: 14,
-                                }}>
-                                    <div style={{ fontSize: 11, color: "rgba(167,139,250,0.6)", marginBottom: 8, display: "flex", alignItems: "center", gap: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                                        <Brain size={10} /> Bot Support Response
+                                {/* ─── Quick Coping Action (CYBERBULLYING only) ─── */}
+                                {latest.detection?.label === "CYBERBULLYING" && (
+                                    <div style={{
+                                        background: "rgba(52,211,153,0.06)",
+                                        backdropFilter: "blur(14px)",
+                                        border: "1px solid rgba(52,211,153,0.18)",
+                                        borderRadius: 14, padding: 14,
+                                    }}>
+                                        <div style={{ fontSize: 11, color: "rgba(52,211,153,0.7)", marginBottom: 8, display: "flex", alignItems: "center", gap: 5, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>
+                                             Quick Coping Action
+                                        </div>
+                                        <p style={{ fontSize: 13, color: "rgba(241,245,249,0.72)", lineHeight: 1.6, marginBottom: 8 }}>
+                                            Take a slow deep breath. Breathe in for 4 seconds, hold 7, out for 8. Repeat 3 times. You are safe.
+                                        </p>
+                                        <a href="/support" style={{
+                                            display: "inline-flex", alignItems: "center", gap: 5,
+                                            fontSize: 12, color: "#34d399", fontWeight: 600, textDecoration: "none",
+                                        }}>
+                                            Try guided exercises → Support Hub
+                                        </a>
                                     </div>
-                                    <p style={{ fontSize: 13, color: "rgba(241,245,249,0.78)", lineHeight: 1.6 }}>
-                                        {latest.text}
-                                    </p>
-                                </div>
+                                )}
 
-                                {/* Suggestions */}
+                                {/* ─── Bot SAFE response (only for SAFE label) ─── */}
+                                {latest.detection?.label === "SAFE" && (
+                                    <div style={{
+                                        background: "rgba(124,58,237,0.08)",
+                                        backdropFilter: "blur(14px)",
+                                        border: "1px solid rgba(139,92,246,0.18)",
+                                        borderRadius: 14, padding: 14,
+                                    }}>
+                                        <div style={{ fontSize: 11, color: "rgba(167,139,250,0.6)", marginBottom: 8, display: "flex", alignItems: "center", gap: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                                            <Brain size={10} /> Bot Response
+                                        </div>
+                                        <p style={{ fontSize: 13, color: "rgba(241,245,249,0.78)", lineHeight: 1.6 }}>
+                                            {latest.text}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* ─── Suggestions as styled cards ─── */}
                                 {latest.suggestions && latest.suggestions.length > 0 && (
                                     <div style={{
                                         background: "rgba(255,255,255,0.03)",
@@ -706,10 +818,18 @@ export default function ChatPage() {
                                         border: "1px solid rgba(255,255,255,0.07)",
                                         borderRadius: 14, padding: 14,
                                     }}>
-                                        <div style={{ fontSize: 11, color: "rgba(241,245,249,0.35)", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>💡 Suggested Actions</div>
-                                        <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                                        <div style={{ fontSize: 11, color: "rgba(241,245,249,0.35)", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                                            {latest.detection?.label === "CYBERBULLYING" ? " What You Can Do" : latest.detection?.label === "OFFENSIVE" ? " Suggested Actions" : " Tips"}
+                                        </div>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                                             {latest.suggestions.map((s, i) => (
-                                                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: "rgba(241,245,249,0.62)", lineHeight: 1.55 }}>
+                                                <div key={i} style={{
+                                                    display: "flex", alignItems: "flex-start", gap: 8,
+                                                    fontSize: 12, color: "rgba(241,245,249,0.65)", lineHeight: 1.55,
+                                                    padding: "6px 8px", borderRadius: 10,
+                                                    background: "rgba(255,255,255,0.02)",
+                                                    border: "1px solid rgba(255,255,255,0.04)",
+                                                }}>
                                                     <span style={{ color: "#a78bfa", fontWeight: 800, flexShrink: 0, fontSize: 13 }}>{i + 1}.</span>
                                                     {s}
                                                 </div>
@@ -718,7 +838,21 @@ export default function ChatPage() {
                                     </div>
                                 )}
 
-                                {/* Copy button */}
+                                {/* ─── Get More Support Link (CYBERBULLYING / OFFENSIVE) ─── */}
+                                {(latest.detection?.label === "CYBERBULLYING" || latest.detection?.label === "OFFENSIVE") && (
+                                    <a href="/support" style={{
+                                        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                                        padding: "12px 16px", borderRadius: 12, textDecoration: "none",
+                                        background: "linear-gradient(135deg, rgba(124,58,237,0.15), rgba(37,99,235,0.12))",
+                                        border: "1px solid rgba(139,92,246,0.3)",
+                                        color: "#c4b5fd", fontSize: 13, fontWeight: 700,
+                                        transition: "all 0.2s",
+                                    }}>
+                                         Get More Support &amp; Coping Resources
+                                    </a>
+                                )}
+
+                                {/* ─── Copy button ─── */}
                                 <button
                                     onClick={() => copyText(latest.text)}
                                     style={{

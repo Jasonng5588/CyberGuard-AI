@@ -5,8 +5,10 @@ Fallback: Comprehensive keyword-based detection with contextual explanations
 """
 import re
 from typing import Tuple, List, Dict
+import os
+import pickle
 
-from ..config import settings
+from config import settings
 
 # ─── Optional HuggingFace import ─────────────────────────────────────────────
 try:
@@ -125,6 +127,9 @@ CB_PHRASES: List[Tuple[str, str]] = [
     ("dungu", "Malay insult"), ("keparat", "Malay insult"), ("tak guna", "Malay worthlessness attack"),
     ("mati cepat sikit", "Malay death wish"), ("kau sampah", "Malay dehumanisation"),
     ("bodo", "Malay insult"), ("menyusahkan orang", "Malay emotional abuse"),
+    ("muka macam pecah rumah", "Malay dehumanisation"), ("anak haram", "Malay insult"),
+    ("babi hutan", "Malay insult"), ("pukimak kau", "Malay severe insult"),
+    ("lanciao la u", "Manglish severe insult"), ("ur mom gay", "English insult"),
     ("你去死", "Chinese death command"), ("你是垃圾", "Chinese dehumanisation"),
     ("废物", "Chinese insult"), ("闭嘴", "Chinese silencing"), ("笨蛋", "Chinese insult"),
     ("你毙了", "Chinese death command"), ("死全家", "Chinese death threat"),
@@ -170,6 +175,7 @@ NEGATIVE_WORDS = [
     "coward", "weirdo", "scum", "bitchy", "annoying", "cringe", "fake",
     "hypocrite", "narcissist", "attention seeker", "pig", "whiny",
     "hodoh", "gemuk", "bodoh", "bengap", "buruk", "pengotor", "busuk",
+    "lanciao", "kimak", "pukimak", "babi", "anjing",
     "丑", "胖", "蠢", "恶心", "差劲", "可悲", "没用", "垃圾", "讨厌",
 ]
 
@@ -342,7 +348,7 @@ def _build_explanation(
             parts.append(f"{neg_count} negative/derogatory words found.")
         context = " ".join(parts) if parts else "Multiple indicators of targeted harassment were detected."
         return (
-            f"⚠️ Cyberbullying detected{sub_tag} with {pct}% confidence. {context} "
+            f" Cyberbullying detected{sub_tag} with {pct}% confidence. {context} "
             "This content may cause serious psychological harm to the recipient."
         )
 
@@ -469,6 +475,47 @@ Output ONLY a JSON object exactly like this:
         print(f"[Ollama] LLM Inference failed: {e}")
         return None
 
+# ─── Custom SVM Model Integration (from CS Research Phase) ────────────────────
+
+_svm_model = None
+_tfidf_vectorizer = None
+_svm_loaded = False
+
+def load_custom_svm():
+    global _svm_model, _tfidf_vectorizer, _svm_loaded
+    if _svm_loaded: return
+    try:
+        model_path = os.path.join(os.path.dirname(__file__), "..", "models", "custom_svm_model.pkl")
+        vec_path = os.path.join(os.path.dirname(__file__), "..", "models", "tfidf_vectorizer.pkl")
+        if os.path.exists(model_path) and os.path.exists(vec_path):
+            with open(model_path, 'rb') as f:
+                _svm_model = pickle.load(f)
+            with open(vec_path, 'rb') as f:
+                _tfidf_vectorizer = pickle.load(f)
+        _svm_loaded = True
+    except Exception as e:
+        print(f"[Detection] Custom SVM load failed: {e}")
+        _svm_loaded = True
+
+def custom_svm_predict(text: str) -> Optional[float]:
+    """Returns the bullying probability if detected by the custom SVM model, else None."""
+    load_custom_svm()
+    if not _svm_model or not _tfidf_vectorizer:
+        return None
+    try:
+        vec = _tfidf_vectorizer.transform([text])
+        # predict_proba returns [[prob_safe, prob_bullying]]
+        probs = _svm_model.predict_proba(vec)[0]
+        prob_bullying = probs[1]
+        
+        # If probability > 0.65, count as bullying
+        if prob_bullying > 0.65:
+            return float(prob_bullying)
+        return None
+    except Exception as e:
+        print(f"[Detection] SVM Predict Error: {e}")
+        return None
+
 # ─── Main detection entry point ───────────────────────────────────────────────
 
 RISK_SCORES = {"SAFE": 0.0, "OFFENSIVE": 0.5, "CYBERBULLYING": 1.0}
@@ -498,25 +545,34 @@ def detect_cyberbullying(text: str) -> dict:
             model_used = "keyword-override"
             meta = kw_meta
         else:
-            classifier = get_classifier()
-            if classifier == "fallback":
-                label, confidence, meta = kw_label, kw_conf, kw_meta
-                model_used = "keyword-fallback"
+            # 3.5. Try Custom Trained SVM Model from Research Phase
+            svm_conf = custom_svm_predict(cleaned)
+            if svm_conf is not None:
+                label = "CYBERBULLYING"
+                confidence = round(svm_conf, 4)
+                meta = kw_meta
+                model_used = "custom-svm-model"
             else:
-                try:
-                    result = classifier(cleaned)[0]
-                    hf_label, hf_conf = map_to_label(result["label"], result["score"])
-                    if hf_label == "SAFE" and kw_label == "OFFENSIVE":
-                        label, confidence, meta = kw_label, kw_conf, kw_meta
-                        model_used = "keyword-override"
-                    else:
-                        label, confidence = hf_label, hf_conf
-                        meta = kw_meta
-                        model_used = settings.DETECTION_MODEL
-                except Exception as e:
-                    print(f"[Detection] Inference error: {e}")
+                # 4. Final Fallback HuggingFace or Keywords
+                classifier = get_classifier()
+                if classifier == "fallback":
                     label, confidence, meta = kw_label, kw_conf, kw_meta
                     model_used = "keyword-fallback"
+                else:
+                    try:
+                        result = classifier(cleaned)[0]
+                        hf_label, hf_conf = map_to_label(result["label"], result["score"])
+                        if hf_label == "SAFE" and kw_label == "OFFENSIVE":
+                            label, confidence, meta = kw_label, kw_conf, kw_meta
+                            model_used = "keyword-override"
+                        else:
+                            label, confidence = hf_label, hf_conf
+                            meta = kw_meta
+                            model_used = settings.DETECTION_MODEL
+                    except Exception as e:
+                        print(f"[Detection] Inference error: {e}")
+                        label, confidence, meta = kw_label, kw_conf, kw_meta
+                        model_used = "keyword-fallback"
 
         sub_type = _classify_sub_type(label, meta)
         explanation = _build_explanation(

@@ -5,9 +5,9 @@ Return detection statistics for the admin dashboard
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, cast, Date
-from ..database.connection import get_db
-from ..database.models import Detection, Message, ChatLog, User
-from ..models.schemas import AnalyticsResponse, DailyStat, TopWord, DetectionLogEntry
+from database.connection import get_db
+from database.models import Detection, Message, ChatLog, User
+from models.schemas import AnalyticsResponse, DailyStat, TopWord, DetectionLogEntry
 import re
 from collections import Counter
 from datetime import datetime, date

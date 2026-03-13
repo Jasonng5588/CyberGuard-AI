@@ -30,7 +30,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: Props) {
             if (mode === "signup") {
                 const { error } = await supabase.auth.signUp({ email, password });
                 if (error) throw error;
-                setMessage({ text: "✅ Account created! You can now sign in.", ok: true });
+                setMessage({ text: "Account created! You can now sign in.", ok: true });
                 setMode("login");
             } else {
                 const { error } = await supabase.auth.signInWithPassword({ email, password });

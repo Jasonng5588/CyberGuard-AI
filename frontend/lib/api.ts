@@ -22,6 +22,8 @@ export interface ChatResponse {
     log_id: number | null;
     session_id: string | null;
     emotion_detected?: string;
+    support_phase?: string | null;
+    coping_strategy?: any | null;
 }
 
 export interface User {
@@ -123,10 +125,28 @@ export async function sendChatMessage(
             message,
             user_id: userId || 1,
             detection_label: detectionLabel,
-            session_id: sessionId,
+            session_id: sessionId || null,
         }),
     });
     if (!res.ok) throw new Error(`Chat failed: ${res.statusText}`);
+    return res.json();
+}
+
+export async function sendSupportChat(
+    message: string,
+    userId?: number,
+    sessionId?: string
+): Promise<ChatResponse> {
+    const res = await fetch(`${API_URL}/api/chat/support`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            message,
+            user_id: userId || 1,
+            session_id: sessionId || null,
+        }),
+    });
+    if (!res.ok) throw new Error(`Support chat failed: ${res.statusText}`);
     return res.json();
 }
 
@@ -228,4 +248,24 @@ export async function getUserByEmail(email: string): Promise<UserResponse | null
 export async function deleteSession(userId: number, sessionId: string): Promise<void> {
     const res = await fetch(`${API_URL}/api/chat/sessions/${userId}/${sessionId}`, { method: 'DELETE' });
     if (!res.ok) throw new Error(`Delete session failed: ${res.statusText}`);
+}
+
+/** Export a user's full chat history as a downloadable CSV file */
+export async function exportChatHistory(userId: number): Promise<void> {
+    const url = `${API_URL}/api/logs/export/csv/${userId}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Export failed: ${res.statusText}`);
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `cyberguard_history_user_${userId}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+/** Submit thumbs up/down feedback on a bot response */
+export async function submitFeedback(logId: number, helpful: boolean): Promise<void> {
+    const res = await fetch(`${API_URL}/api/logs/feedback/${logId}?helpful=${helpful}`, { method: 'POST' });
+    if (!res.ok) throw new Error(`Feedback submission failed: ${res.statusText}`);
 }

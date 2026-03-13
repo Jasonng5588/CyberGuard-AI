@@ -5,9 +5,9 @@ Retrieve conversation and detection logs
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
-from ..database.connection import get_db
-from ..database.models import ChatLog, Detection, Message, User
-from ..models.schemas import LogsResponse, LogEntry, DetectionLogEntry, AdminSessionPreview
+from database.connection import get_db
+from database.models import ChatLog, Detection, Message, User
+from models.schemas import LogsResponse, LogEntry, DetectionLogEntry, AdminSessionPreview
 from typing import List
 
 router = APIRouter(prefix="/logs", tags=["Logs"])
@@ -106,6 +106,70 @@ async def delete_detection_log(det_id: int, db: Session = Depends(get_db)):
     db.delete(det)
     db.commit()
     return {"message": "Detection log deleted successfully"}
+
+
+@router.get("/export/csv/{user_id}")
+async def export_chat_history_csv(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    """Export a user's full chat history as a downloadable CSV file (Data Portability)."""
+    import csv
+    import io
+    from fastapi.responses import StreamingResponse
+
+    logs_db = (
+        db.query(ChatLog)
+        .filter(ChatLog.user_id == user_id)
+        .order_by(ChatLog.timestamp.asc())
+        .all()
+    )
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["ID", "Timestamp", "User Message", "Bot Response", "Detection Label", "Confidence", "Sub Type", "Explanation", "Session ID"])
+
+    for log in logs_db:
+        writer.writerow([
+            log.id,
+            log.timestamp.isoformat() if log.timestamp else "",
+            log.user_message or "",
+            log.bot_response or "",
+            log.detection_label or "SAFE",
+            round(log.confidence or 0.0, 4),
+            log.sub_type or "None",
+            log.explanation or "",
+            log.session_id or "",
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=cyberguard_history_user_{user_id}.csv"}
+    )
+
+
+@router.post("/feedback/{log_id}")
+async def submit_response_feedback(
+    log_id: int,
+    helpful: bool,
+    db: Session = Depends(get_db)
+):
+    """
+    User feedback on a bot response.
+    Records whether a bot response was helpful — used for system evaluation.
+    Fulfills the report's User Satisfaction Evaluation requirement.
+    """
+    log = db.query(ChatLog).filter(ChatLog.id == log_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Chat log not found")
+    # Store feedback signal in explanation field (clean solution without schema migration)
+    current = log.explanation or ""
+    if "[feedback:" not in current:
+        log.explanation = current + f" [feedback:{'helpful' if helpful else 'not_helpful'}]"
+    db.commit()
+    return {"status": "ok", "log_id": log_id, "helpful": helpful}
 
 
 @router.get("/admin/sessions/all", response_model=List[AdminSessionPreview])

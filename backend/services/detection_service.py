@@ -504,7 +504,7 @@ def openrouter_detect(text: str) -> Optional[dict]:
 
     prompt = _build_detection_prompt(text)
     data = {
-        "model": "meta-llama/llama-3.1-8b-instruct:free",
+        "model": "meta-llama/llama-3.3-70b-instruct:free",
         "messages": [
             {"role": "system", "content": "You are a strict JSON classification API. Output ONLY valid JSON, no markdown, no explanation."},
             {"role": "user", "content": prompt}
@@ -660,7 +660,7 @@ def detect_cyberbullying(text: str) -> dict:
     model_used_llm = "phi3:mini"
     if not llm_result:
         llm_result = openrouter_detect(cleaned)
-        model_used_llm = "openrouter-llama-3.1-8b"
+        model_used_llm = "openrouter-llama-3.3-70b"
     if not llm_result:
         llm_result = groq_detect(cleaned)
         model_used_llm = "groq-llama-3.1-8b"

@@ -288,7 +288,7 @@ def _call_openrouter(messages: list[dict[str, Any]]) -> Optional[str]:
         print("[OpenRouter] OPENROUTER_API_KEY not set — skipping")
         return None
     data = {
-        "model": "meta-llama/llama-3.1-8b-instruct:free",
+        "model": "meta-llama/llama-3.3-70b-instruct:free",
         "messages": messages,
         "temperature": 0.7,
         "max_tokens": 350,
@@ -305,7 +305,7 @@ def _call_openrouter(messages: list[dict[str, Any]]) -> Optional[str]:
                 "X-Title": "CyberGuard AI",
             },
         )
-        print(f"[OpenRouter] Sending request (model: llama-3.1-8b-instruct:free, msgs: {len(messages)})")
+        print(f"[OpenRouter] Sending request (model: llama-3.3-70b-instruct:free, msgs: {len(messages)})")
         
         with urllib.request.urlopen(req, timeout=30) as resp:
             body = resp.read().decode()

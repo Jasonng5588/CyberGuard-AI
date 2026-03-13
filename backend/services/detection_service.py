@@ -428,6 +428,7 @@ def preprocess_text(text: str) -> str:
 # ─── LLM Detection (Ollama + Groq) ────────────────────────────────────────────
 
 import json
+import time
 import traceback
 import urllib.request
 import urllib.error
@@ -521,24 +522,35 @@ def gemini_detect(text: str) -> Optional[dict]:
             },
         )
         print(f"[Gemini Detection] Sending classification request...")
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            body = resp.read().decode()
-            result = json.loads(body)
-            content = result["choices"][0]["message"]["content"].strip()
-            # Strip markdown code fences if present
-            if content.startswith("```"):
-                content = content.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-            parsed = json.loads(content)
 
-            # Basic validation
-            if parsed.get("label") not in ("SAFE", "OFFENSIVE", "CYBERBULLYING"):
-                print(f"[Gemini Detection] ⚠️ Invalid label: {parsed.get('label')}")
+        for attempt in range(3):
+            try:
+                with urllib.request.urlopen(req, timeout=20) as resp:
+                    body = resp.read().decode()
+                    result = json.loads(body)
+                    content = result["choices"][0]["message"]["content"].strip()
+                    # Strip markdown code fences if present
+                    if content.startswith("```"):
+                        content = content.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+                    parsed = json.loads(content)
+
+                    # Basic validation
+                    if parsed.get("label") not in ("SAFE", "OFFENSIVE", "CYBERBULLYING"):
+                        print(f"[Gemini Detection] ⚠️ Invalid label: {parsed.get('label')}")
+                        return None
+                    print(f"[Gemini Detection] ✅ Result: {parsed.get('label')} ({parsed.get('confidence')})")
+                    return parsed
+            except urllib.error.HTTPError as e:
+                if e.code == 429:
+                    wait_time = 2 ** attempt  # 1s, 2s, 4s
+                    print(f"[Gemini Detection] ⚠️ HTTP 429 Rate Limit. Retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                    continue
+                error_body = e.read().decode() if hasattr(e, 'read') else 'N/A'
+                print(f"[Gemini Detection] ❌ HTTP {e.code} error: {error_body}")
                 return None
-            print(f"[Gemini Detection] ✅ Result: {parsed.get('label')} ({parsed.get('confidence')})")
-            return parsed
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode() if hasattr(e, 'read') else 'N/A'
-        print(f"[Gemini Detection] ❌ HTTP {e.code} error: {error_body}")
+
+        print("[Gemini Detection] ❌ Max retries reached for 429")
         return None
     except Exception as e:
         print(f"[Gemini Detection] ❌ Failed: {type(e).__name__}: {e}")

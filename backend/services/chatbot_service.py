@@ -13,6 +13,7 @@ Enhanced with:
 import json
 import os
 import random
+import time
 import traceback
 import urllib.error
 import urllib.request
@@ -301,15 +302,26 @@ def _call_gemini(messages: list[dict[str, Any]]) -> Optional[str]:
             },
         )
         print(f"[Gemini] Sending request (model: gemini-2.0-flash, msgs: {len(messages)})")
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            body = resp.read().decode()
-            result = json.loads(body)
-            content = result["choices"][0]["message"]["content"].strip().strip('"').strip()
-            print(f"[Gemini] ✅ Success — response length: {len(content)} chars")
-            return content
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode() if hasattr(e, 'read') else 'N/A'
-        print(f"[Gemini] ❌ HTTP {e.code} error: {error_body}")
+        
+        for attempt in range(3):
+            try:
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    body = resp.read().decode()
+                    result = json.loads(body)
+                    content = result["choices"][0]["message"]["content"].strip().strip('"').strip()
+                    print(f"[Gemini] ✅ Success — response length: {len(content)} chars")
+                    return content
+            except urllib.error.HTTPError as e:
+                if e.code == 429:
+                    wait_time = 2 ** attempt  # 1s, 2s, 4s
+                    print(f"[Gemini] ⚠️ HTTP 429 Rate Limit. Retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                    continue
+                error_body = e.read().decode() if hasattr(e, 'read') else 'N/A'
+                print(f"[Gemini] ❌ HTTP {e.code} error: {error_body}")
+                return None
+
+        print("[Gemini] ❌ Max retries reached for 429")
         return None
     except Exception as e:
         print(f"[Gemini] ❌ API call failed: {type(e).__name__}: {e}")

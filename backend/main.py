@@ -2,6 +2,12 @@
 FastAPI Main Application Entry Point
 CyberGuard AI - Cyberbullying Detection & Support System
 """
+import sys
+import os
+# Ensure the backend directory is always on the path, regardless of where
+# uvicorn is launched from (local dev vs Render cloud deployment).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse

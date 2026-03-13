@@ -623,6 +623,7 @@ export default function ChatPage() {
                             >
                                 <Send size={17} color="white" />
                             </button>
+                        </div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
                             <p style={{ fontSize: 11, color: "rgba(241,245,249,0.22)" }}>
                                 Messages are analysed by AI · Results for educational purposes only
@@ -962,7 +963,6 @@ export default function ChatPage() {
                         <div style={{ flex: 1 }} onClick={() => setMobileSidebarOpen(false)} />
                     </div>
                 )}
-            </div>
             </div>
 
             {/* ─── Survey Modal ────────────────────────────────────────────── */}

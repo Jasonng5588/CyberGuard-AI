@@ -8,11 +8,11 @@ from typing import Tuple, List, Dict
 import os
 import pickle
 
-from config import settings
+from config import settings # type: ignore
 
 # ─── Optional HuggingFace import ─────────────────────────────────────────────
 try:
-    from transformers import pipeline as hf_pipeline
+    from transformers import pipeline as hf_pipeline, AutoModelForSequenceClassification, AutoTokenizer  # type: ignore
     TRANSFORMERS_AVAILABLE = True
 except ImportError:
     TRANSFORMERS_AVAILABLE = False
@@ -380,20 +380,20 @@ def keyword_detect(text: str) -> Tuple[str, float, dict]:
 
     if severe:
         # Severe gets extremely high confidence, slightly varied based on text length so it doesn't look hardcoded
-        conf = round(float(min(0.99, 0.95 + min(0.04, float(len(text)) * 0.001))), 4)
+        conf = float(f"{min(0.99, 0.95 + min(0.04, len(text) * 0.001)):.4f}")
         return "CYBERBULLYING", conf, {"severe": severe, "cb": cb, "off": off, "neg": neg}
 
     if cb:
         # Specific cyberbullying phrases get very high confidence (0.95+)
-        conf = round(float(min(0.98, 0.88 + min(0.10, float(len(cb)) * 0.05))), 4)
+        conf = float(f"{min(0.98, 0.88 + min(0.10, len(cb) * 0.05)):.4f}")
         return "CYBERBULLYING", conf, {"severe": severe, "cb": cb, "off": off, "neg": neg}
 
     if neg >= 3:
-        conf = round(float(min(0.85, 0.70 + float(neg) * 0.04)), 4)
+        conf = float(f"{min(0.85, 0.70 + neg * 0.04):.4f}")
         return "CYBERBULLYING", conf, {"severe": severe, "cb": cb, "off": off, "neg": neg}
 
     if off:
-        conf = round(float(min(0.88, 0.72 + min(0.18, float(len(off)) * 0.06))), 4)
+        conf = float(f"{min(0.88, 0.72 + min(0.18, len(off) * 0.06)):.4f}")
         return "OFFENSIVE", conf, {"severe": severe, "cb": cb, "off": off, "neg": neg}
 
     if neg == 2:
@@ -402,9 +402,9 @@ def keyword_detect(text: str) -> Tuple[str, float, dict]:
         return "OFFENSIVE", 0.55, {"severe": severe, "cb": cb, "off": off, "neg": neg}
 
     if caps_ratio > 0.6 and len(text) > 10:
-        return "OFFENSIVE", round(float(0.52 + min(0.15, caps_ratio * 0.2)), 4), {"severe": [], "cb": [], "off": [], "neg": 0}
+        return "OFFENSIVE", float(f"{0.52 + min(0.15, caps_ratio * 0.2):.4f}"), {"severe": [], "cb": [], "off": [], "neg": 0}
 
-    safe_conf = round(float(0.80 + min(0.18, (1.0 - caps_ratio) * 0.15)), 4)
+    safe_conf = float(f"{0.80 + min(0.18, (1.0 - caps_ratio) * 0.15):.4f}")
     return "SAFE", safe_conf, {"severe": [], "cb": [], "off": [], "neg": 0}
 
 
@@ -682,7 +682,7 @@ def detect_cyberbullying(text: str) -> dict:
             svm_conf = custom_svm_predict(cleaned)
             if svm_conf is not None:
                 label = "CYBERBULLYING"
-                confidence = float(round(float(svm_conf), 4))
+                confidence = float(f"{svm_conf:.4f}")
                 meta = kw_meta
                 model_used = "custom-svm-model"
             else:
@@ -715,10 +715,15 @@ def detect_cyberbullying(text: str) -> dict:
             sub_type=sub_type,
         )
 
+    # Force typing to appease Pyre
+    final_conf: float = float(f"{confidence:.4f}")
+    val_risk: float = float(RISK_SCORES.get(label, 0.5)) * confidence
+    risk: float = float(f"{val_risk:.4f}")
+
     return {
         "label": label,
-        "confidence": float(round(float(confidence), 4)),
-        "risk_score": float(round(float(RISK_SCORES.get(label, 0.5)) * float(confidence), 4)),
+        "confidence": final_conf,
+        "risk_score": risk,
         "model_used": model_used,
         "explanation": explanation,
         "sub_type": sub_type,

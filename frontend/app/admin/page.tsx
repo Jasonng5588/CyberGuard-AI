@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { getLogs, deleteLog, getDetectionLogs, deleteDetection, getAllSessionsAdmin, getSessionHistory, getAnalytics } from "@/lib/api";
 import { LogEntry, DetectionLogEntry, AdminSessionPreview, AnalyticsData } from "@/lib/api";
-import { Trash2, ShieldAlert, Database, Lock, User, RefreshCw, Key, Shield, MessageSquare, X, ChevronRight, Brain, TrendingUp } from "lucide-react";
+import { Trash2, ShieldAlert, Database, Lock, User, RefreshCw, Key, Shield, MessageSquare, X, ChevronRight, Brain, TrendingUp, ThumbsUp, ThumbsDown } from "lucide-react";
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const PIE_COLORS = ["#f87171", "#fbbf24", "#34d399"];
@@ -323,6 +323,7 @@ export default function AdminPage() {
                                         <>
                                             <th style={{ padding: "14px 16px", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>USER MESSAGE</th>
                                             <th style={{ padding: "14px 16px", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>LABEL</th>
+                                            <th style={{ padding: "14px 16px", fontSize: 12, color: "rgba(255,255,255,0.4)", textAlign: "center" }}>HELPFUL</th>
                                         </>
                                     )}
                                     {activeTab === "detections" && (
@@ -362,6 +363,11 @@ export default function AdminPage() {
                                                 background: log.detection_label === 'SAFE' ? "rgba(52,211,153,0.15)" : log.detection_label === 'CYBERBULLYING' ? "rgba(248,113,113,0.15)" : "rgba(251,191,36,0.15)",
                                                 color: log.detection_label === 'SAFE' ? "#34d399" : log.detection_label === 'CYBERBULLYING' ? "#f87171" : "#fbbf24",
                                             }}>{log.detection_label}</span>
+                                        </td>
+                                        <td style={{ padding: "14px 16px", textAlign: "center" }}>
+                                            {log.feedback_helpful === true && <ThumbsUp size={16} color="#34d399" />}
+                                            {log.feedback_helpful === false && <ThumbsDown size={16} color="#f87171" />}
+                                            {log.feedback_helpful === null && <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 12 }}>—</span>}
                                         </td>
                                         <td style={{ padding: "14px 16px", textAlign: "right" }}>
                                             <button onClick={() => handleDeleteLog(log.id)} style={{
@@ -485,7 +491,14 @@ export default function AdminPage() {
                                         </div>
                                         <div style={{ marginTop: 8 }}>
                                             <div style={{ fontSize: 11, fontWeight: 600, color: "#38bdf8", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}><Brain size={12} /> CyberGuard AI</div>
-                                            <div style={{ fontSize: 14, color: "rgba(248,250,252,0.8)", paddingLeft: 14, borderLeft: "2px solid rgba(56,189,248,0.5)" }}>{log.bot_response}</div>
+                                            <div style={{ fontSize: 14, color: "rgba(248,250,252,0.8)", paddingLeft: 14, borderLeft: "2px solid rgba(56,189,248,0.5)" }}>
+                                                {log.bot_response}
+                                                {log.feedback_helpful !== null && log.feedback_helpful !== undefined && (
+                                                    <div style={{ marginTop: 6, display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(255,255,255,0.05)", padding: "2px 6px", borderRadius: 4, fontSize: 10 }}>
+                                                        {log.feedback_helpful ? <><ThumbsUp size={10} color="#34d399" /> <span style={{ color: "#34d399" }}>Helpful</span></> : <><ThumbsDown size={10} color="#f87171" /> <span style={{ color: "#f87171" }}>Not Helpful</span></>}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 ))

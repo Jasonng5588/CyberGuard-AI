@@ -44,6 +44,7 @@ async def get_chat_logs(
             session_id=log.session_id,
             timestamp=log.timestamp,
             username=log.user.username if log.user else "anonymous",
+            feedback_helpful=log.feedback_helpful,
         )
         for log in logs_db
     ]

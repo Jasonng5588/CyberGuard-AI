@@ -81,6 +81,7 @@ class LogEntry(BaseModel):
     session_id: Optional[str]
     timestamp: datetime
     username: Optional[str]
+    feedback_helpful: Optional[bool] = None
 
     class Config:
         from_attributes = True

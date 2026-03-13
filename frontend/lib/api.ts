@@ -91,6 +91,7 @@ export interface LogEntry {
     session_id: string | null;
     timestamp: string;
     username: string | null;
+    feedback_helpful?: boolean | null;
 }
 
 export interface LogsResponse {

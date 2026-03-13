@@ -337,13 +337,14 @@ def _build_explanation(
         sub_tag = f" [{sub_type}]" if sub_type and sub_type != "None" else ""
         if severe:
             langs = list({lang for _, lang in severe})
-            terms_str = ", ".join(f'"{t}"' for t, _ in severe[:3])
+            terms_str = ", ".join(f'"{severe[i][0]}"' for i in range(min(3, len(severe))))
             parts.append(
                 f"Severe abusive language detected ({', '.join(langs)}): {terms_str}."
             )
         if cb:
             cats = list({cat for _, cat in cb})
-            parts.append(f"Patterns identified: {', '.join(cats[:4])}.")
+            cats_sub = [cats[i] for i in range(min(4, len(cats)))]
+            parts.append(f"Patterns identified: {', '.join(cats_sub)}.")
         if neg_count >= 2:
             parts.append(f"{neg_count} negative/derogatory words found.")
         context = " ".join(parts) if parts else "Multiple indicators of targeted harassment were detected."
@@ -356,8 +357,9 @@ def _build_explanation(
     parts = []
     if off:
         cats = list({cat for _, cat in off})
-        phrases_str = ", ".join(f'"{p}"' for p, _ in off[:3])
-        parts.append(f"Offensive language detected: {phrases_str} ({', '.join(cats[:3])}).")
+        phrases_str = ", ".join(f'"{off[i][0]}"' for i in range(min(3, len(off))))
+        cats_sub = [cats[i] for i in range(min(3, len(cats)))]
+        parts.append(f"Offensive language detected: {phrases_str} ({', '.join(cats_sub)}).")
     if neg_count:
         parts.append(f"{neg_count} negatively-charged word(s) found.")
     context = " ".join(parts) if parts else "Potentially hurtful or disrespectful language was detected."
@@ -370,7 +372,7 @@ def _build_explanation(
 # ─── Keyword-based classification ─────────────────────────────────────────────
 
 def keyword_detect(text: str) -> Tuple[str, float, dict]:
-    severe = _find_severe(text)
+    severe: list[tuple[str, str]] = _find_severe(text)
     cb = _find_cb_phrases(text)
     off = _find_off_phrases(text)
     neg = _count_neg(text)
@@ -378,20 +380,20 @@ def keyword_detect(text: str) -> Tuple[str, float, dict]:
 
     if severe:
         # Severe gets extremely high confidence, slightly varied based on text length so it doesn't look hardcoded
-        conf = round(min(0.99, 0.95 + min(0.04, len(text) * 0.001)), 4)
+        conf = round(float(min(0.99, 0.95 + min(0.04, float(len(text)) * 0.001))), 4)
         return "CYBERBULLYING", conf, {"severe": severe, "cb": cb, "off": off, "neg": neg}
 
     if cb:
         # Specific cyberbullying phrases get very high confidence (0.95+)
-        conf = round(min(0.98, 0.88 + min(0.10, len(cb) * 0.05)), 4)
+        conf = round(float(min(0.98, 0.88 + min(0.10, float(len(cb)) * 0.05))), 4)
         return "CYBERBULLYING", conf, {"severe": severe, "cb": cb, "off": off, "neg": neg}
 
     if neg >= 3:
-        conf = round(min(0.85, 0.70 + neg * 0.04), 4)
+        conf = round(float(min(0.85, 0.70 + float(neg) * 0.04)), 4)
         return "CYBERBULLYING", conf, {"severe": severe, "cb": cb, "off": off, "neg": neg}
 
     if off:
-        conf = round(min(0.88, 0.72 + min(0.18, len(off) * 0.06)), 4)
+        conf = round(float(min(0.88, 0.72 + min(0.18, float(len(off)) * 0.06))), 4)
         return "OFFENSIVE", conf, {"severe": severe, "cb": cb, "off": off, "neg": neg}
 
     if neg == 2:
@@ -400,9 +402,9 @@ def keyword_detect(text: str) -> Tuple[str, float, dict]:
         return "OFFENSIVE", 0.55, {"severe": severe, "cb": cb, "off": off, "neg": neg}
 
     if caps_ratio > 0.6 and len(text) > 10:
-        return "OFFENSIVE", round(0.52 + min(0.15, caps_ratio * 0.2), 4), {"severe": [], "cb": [], "off": [], "neg": 0}
+        return "OFFENSIVE", round(float(0.52 + min(0.15, caps_ratio * 0.2)), 4), {"severe": [], "cb": [], "off": [], "neg": 0}
 
-    safe_conf = round(0.80 + min(0.18, (1 - caps_ratio) * 0.15), 4)
+    safe_conf = round(float(0.80 + min(0.18, (1.0 - caps_ratio) * 0.15)), 4)
     return "SAFE", safe_conf, {"severe": [], "cb": [], "off": [], "neg": 0}
 
 
@@ -435,9 +437,9 @@ import urllib.error
 from typing import Optional
 
 _GROQ_KEY = os.environ.get("GROQ_API_KEY", "")
-_DEEPSEEK_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
-_IS_DEPLOYED = bool(_GROQ_KEY or _DEEPSEEK_KEY)
-print(f"[Detection] DEEPSEEK_API_KEY set: {bool(_DEEPSEEK_KEY)} | GROQ_API_KEY set: {bool(_GROQ_KEY)} | Deployed mode: {_IS_DEPLOYED}")
+_OPENROUTER_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+_IS_DEPLOYED = bool(_GROQ_KEY or _OPENROUTER_KEY)
+print(f"[Detection] OPENROUTER_API_KEY set: {bool(_OPENROUTER_KEY)} | GROQ_API_KEY set: {bool(_GROQ_KEY)} | Deployed mode: {_IS_DEPLOYED}")
 
 
 def _build_detection_prompt(text: str) -> str:
@@ -493,16 +495,16 @@ def ollama_detect(text: str) -> Optional[dict]:
         return None
 
 
-def deepseek_detect(text: str) -> Optional[dict]:
-    """Call DeepSeek API for context-aware classification. Primary cloud provider."""
-    api_key = os.environ.get("DEEPSEEK_API_KEY", "")
+def openrouter_detect(text: str) -> Optional[dict]:
+    """Call OpenRouter API for context-aware classification. Primary cloud provider."""
+    api_key = os.environ.get("OPENROUTER_API_KEY", "")
     if not api_key:
-        print("[DeepSeek Detection] DEEPSEEK_API_KEY not set — skipping")
+        print("[OpenRouter Detection] OPENROUTER_API_KEY not set — skipping")
         return None
 
     prompt = _build_detection_prompt(text)
     data = {
-        "model": "deepseek-chat",
+        "model": "meta-llama/llama-3.1-8b-instruct:free",
         "messages": [
             {"role": "system", "content": "You are a strict JSON classification API. Output ONLY valid JSON, no markdown, no explanation."},
             {"role": "user", "content": prompt}
@@ -515,35 +517,37 @@ def deepseek_detect(text: str) -> Optional[dict]:
     try:
         payload = json.dumps(data).encode("utf-8")
         req = urllib.request.Request(
-            "https://api.deepseek.com/chat/completions",
+            "https://openrouter.ai/api/v1/chat/completions",
             data=payload,
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {api_key}",
+                "HTTP-Referer": "https://cyberguard-ai.com",
+                "X-Title": "CyberGuard AI",
             },
         )
-        print(f"[DeepSeek Detection] Sending classification request...")
+        print(f"[OpenRouter Detection] Sending classification request...")
         with urllib.request.urlopen(req, timeout=30) as resp:
             body = resp.read().decode()
             result = json.loads(body)
             content = result["choices"][0]["message"]["content"].strip()
-            # DeepSeek might still return markdown fences despite json_object
+            # OpenRouter LLMs might still return markdown fences despite json_object
             if content.startswith("```"):
                 content = content.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
             parsed = json.loads(content)
 
             # Basic validation
             if parsed.get("label") not in ("SAFE", "OFFENSIVE", "CYBERBULLYING"):
-                print(f"[DeepSeek Detection] ⚠️ Invalid label: {parsed.get('label')}")
+                print(f"[OpenRouter Detection] ⚠️ Invalid label: {parsed.get('label')}")
                 return None
-            print(f"[DeepSeek Detection] ✅ Result: {parsed.get('label')} ({parsed.get('confidence')})")
+            print(f"[OpenRouter Detection] ✅ Result: {parsed.get('label')} ({parsed.get('confidence')})")
             return parsed
     except urllib.error.HTTPError as e:
         error_body = e.read().decode() if hasattr(e, 'read') else 'N/A'
-        print(f"[DeepSeek Detection] ❌ HTTP {e.code} error: {error_body}")
+        print(f"[OpenRouter Detection] ❌ HTTP {e.code} error: {error_body}")
         return None
     except Exception as e:
-        print(f"[DeepSeek Detection] ❌ Failed: {type(e).__name__}: {e}")
+        print(f"[OpenRouter Detection] ❌ Failed: {type(e).__name__}: {e}")
         traceback.print_exc()
         return None
 
@@ -627,9 +631,9 @@ def custom_svm_predict(text: str) -> Optional[float]:
     if not _svm_model or not _tfidf_vectorizer:
         return None
     try:
-        vec = _tfidf_vectorizer.transform([text])
+        vec = _tfidf_vectorizer.transform([text]) # type: ignore
         # predict_proba returns [[prob_safe, prob_bullying]]
-        probs = _svm_model.predict_proba(vec)[0]
+        probs = _svm_model.predict_proba(vec)[0] # type: ignore
         prob_bullying = probs[1]
         
         # If probability > 0.65, count as bullying
@@ -651,12 +655,12 @@ def detect_cyberbullying(text: str) -> dict:
     # 1. Gather context from our local rule base (useful for chatbot context)
     kw_label, kw_conf, kw_meta = keyword_detect(cleaned)
 
-    # 2. Try LLM detection: Ollama (local) → DeepSeek (cloud) → Groq (cloud fallback)
+    # 2. Try LLM detection: Ollama (local) → OpenRouter (cloud) → Groq (cloud fallback)
     llm_result = ollama_detect(cleaned)
     model_used_llm = "phi3:mini"
     if not llm_result:
-        llm_result = deepseek_detect(cleaned)
-        model_used_llm = "deepseek-chat"
+        llm_result = openrouter_detect(cleaned)
+        model_used_llm = "openrouter-llama-3.1-8b"
     if not llm_result:
         llm_result = groq_detect(cleaned)
         model_used_llm = "groq-llama-3.1-8b"
@@ -680,7 +684,7 @@ def detect_cyberbullying(text: str) -> dict:
             svm_conf = custom_svm_predict(cleaned)
             if svm_conf is not None:
                 label = "CYBERBULLYING"
-                confidence = round(svm_conf, 4)
+                confidence = float(round(float(svm_conf), 4))
                 meta = kw_meta
                 model_used = "custom-svm-model"
             else:
@@ -715,8 +719,8 @@ def detect_cyberbullying(text: str) -> dict:
 
     return {
         "label": label,
-        "confidence": round(confidence, 4),
-        "risk_score": round(RISK_SCORES.get(label, 0.5) * confidence, 4),
+        "confidence": float(round(float(confidence), 4)),
+        "risk_score": float(round(float(RISK_SCORES.get(label, 0.5)) * float(confidence), 4)),
         "model_used": model_used,
         "explanation": explanation,
         "sub_type": sub_type,

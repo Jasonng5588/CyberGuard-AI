@@ -21,9 +21,9 @@ from typing import Optional, Any
 
 # ─── Startup: check environment ──────────────────────────────────────────────
 _GROQ_KEY = os.environ.get("GROQ_API_KEY", "")
-_DEEPSEEK_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
-_IS_DEPLOYED = bool(_GROQ_KEY or _DEEPSEEK_KEY)  # If any cloud key is set, we're deployed
-print(f"[Chatbot] DEEPSEEK_API_KEY set: {bool(_DEEPSEEK_KEY)} | GROQ_API_KEY set: {bool(_GROQ_KEY)} | Deployed mode: {_IS_DEPLOYED}")
+_OPENROUTER_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+_IS_DEPLOYED = bool(_GROQ_KEY or _OPENROUTER_KEY)  # If any cloud key is set, we're deployed
+print(f"[Chatbot] OPENROUTER_API_KEY set: {bool(_OPENROUTER_KEY)} | GROQ_API_KEY set: {bool(_GROQ_KEY)} | Deployed mode: {_IS_DEPLOYED}")
 
 
 
@@ -247,7 +247,9 @@ def _build_messages(system_prompt: str, message: str, history: Optional[list[Any
     """Shared message builder for any LLM backend."""
     msgs: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
     if history is not None:
-        for msg in history[max(0, len(history) - 10):]:
+        start_idx = max(0, len(history) - 10)
+        for i in range(start_idx, len(history)):
+            msg = history[i]
             msgs.append({"role": "user", "content": msg.user_message})
             msgs.append({"role": "assistant", "content": msg.bot_response})
     msgs.append({"role": "user", "content": message})
@@ -279,14 +281,14 @@ def _call_ollama(messages: list[dict[str, Any]]) -> Optional[str]:
         return None
 
 
-def _call_deepseek(messages: list[dict[str, Any]]) -> Optional[str]:
-    """Try DeepSeek API (deepseek-chat). Primary cloud provider as requested by user."""
-    api_key = os.environ.get("DEEPSEEK_API_KEY", "")
+def _call_openrouter(messages: list[dict[str, Any]]) -> Optional[str]:
+    """Try OpenRouter API. Primary cloud provider as requested by user."""
+    api_key = os.environ.get("OPENROUTER_API_KEY", "")
     if not api_key:
-        print("[DeepSeek] DEEPSEEK_API_KEY not set — skipping")
+        print("[OpenRouter] OPENROUTER_API_KEY not set — skipping")
         return None
     data = {
-        "model": "deepseek-chat",
+        "model": "meta-llama/llama-3.1-8b-instruct:free",
         "messages": messages,
         "temperature": 0.7,
         "max_tokens": 350,
@@ -294,27 +296,29 @@ def _call_deepseek(messages: list[dict[str, Any]]) -> Optional[str]:
     try:
         payload = json.dumps(data).encode("utf-8")
         req = urllib.request.Request(
-            "https://api.deepseek.com/chat/completions",
+            "https://openrouter.ai/api/v1/chat/completions",
             data=payload,
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {api_key}",
+                "HTTP-Referer": "https://cyberguard-ai.com",
+                "X-Title": "CyberGuard AI",
             },
         )
-        print(f"[DeepSeek] Sending request (model: deepseek-chat, msgs: {len(messages)})")
+        print(f"[OpenRouter] Sending request (model: llama-3.1-8b-instruct:free, msgs: {len(messages)})")
         
         with urllib.request.urlopen(req, timeout=30) as resp:
             body = resp.read().decode()
             result = json.loads(body)
             content = result["choices"][0]["message"]["content"].strip().strip('"').strip()
-            print(f"[DeepSeek] ✅ Success — response length: {len(content)} chars")
+            print(f"[OpenRouter] ✅ Success — response length: {len(content)} chars")
             return content
     except urllib.error.HTTPError as e:
         error_body = e.read().decode() if hasattr(e, 'read') else 'N/A'
-        print(f"[DeepSeek] ❌ HTTP {e.code} error: {error_body}")
+        print(f"[OpenRouter] ❌ HTTP {e.code} error: {error_body}")
         return None
     except Exception as e:
-        print(f"[DeepSeek] ❌ API call failed: {type(e).__name__}: {e}")
+        print(f"[OpenRouter] ❌ API call failed: {type(e).__name__}: {e}")
         traceback.print_exc()
         return None
 
@@ -405,8 +409,8 @@ Write exactly 2-4 sentences of empathetic support addressing the user directly.
     if result:
         return result
 
-    # Tier 2: DeepSeek (primary cloud)
-    result = _call_deepseek(messages)
+    # Tier 2: OpenRouter (primary cloud)
+    result = _call_openrouter(messages)
     if result:
         return result
 

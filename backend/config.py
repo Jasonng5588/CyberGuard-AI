@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     FRONTEND_URL: str = "http://localhost:3000"
     OPENAI_API_KEY: Optional[str] = None
+    GROQ_API_KEY: Optional[str] = None
     DETECTION_MODEL: str = "martin-ha/toxic-comment-model"
     USE_OPENAI_CHATBOT: bool = False
     SECRET_KEY: str = "dev-secret-key-change-in-production"

@@ -13,8 +13,15 @@ Enhanced with:
 import json
 import os
 import random
+import traceback
+import urllib.error
 import urllib.request
 from typing import Optional, Any
+
+# ─── Startup: check environment ──────────────────────────────────────────────
+_GROQ_KEY = os.environ.get("GROQ_API_KEY", "")
+_IS_DEPLOYED = bool(_GROQ_KEY)  # If GROQ key is set, we're in a deployed environment
+print(f"[Chatbot] GROQ_API_KEY set: {bool(_GROQ_KEY)} | Deployed mode: {_IS_DEPLOYED}")
 
 
 
@@ -247,6 +254,9 @@ def _build_messages(system_prompt: str, message: str, history: Optional[list[Any
 
 def _call_ollama(messages: list[dict[str, Any]]) -> Optional[str]:
     """Try local Ollama (phi3:mini). Returns None if unavailable."""
+    if _IS_DEPLOYED:
+        # Skip Ollama entirely in deployed environments — no localhost available
+        return None
     data = {
         "model": "phi3:mini",
         "messages": messages,
@@ -280,19 +290,29 @@ def _call_groq(messages: list[dict[str, Any]]) -> Optional[str]:
         "max_tokens": 300,
     }
     try:
+        payload = json.dumps(data).encode("utf-8")
         req = urllib.request.Request(
             "https://api.groq.com/openai/v1/chat/completions",
-            data=json.dumps(data).encode("utf-8"),
+            data=payload,
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {api_key}",
             },
         )
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            result = json.loads(resp.read().decode())
-            return result["choices"][0]["message"]["content"].strip().strip('"').strip()
+        print(f"[Groq] Sending request to Groq API (model: llama-3.1-8b-instant, msgs: {len(messages)})")
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            body = resp.read().decode()
+            result = json.loads(body)
+            content = result["choices"][0]["message"]["content"].strip().strip('"').strip()
+            print(f"[Groq] ✅ Success — response length: {len(content)} chars")
+            return content
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode() if hasattr(e, 'read') else 'N/A'
+        print(f"[Groq] ❌ HTTP {e.code} error: {error_body}")
+        return None
     except Exception as e:
-        print(f"[Groq] API call failed: {e}")
+        print(f"[Groq] ❌ API call failed: {type(e).__name__}: {e}")
+        traceback.print_exc()
         return None
 
 

@@ -425,15 +425,22 @@ def preprocess_text(text: str) -> str:
     return re.sub(r'\s+', ' ', text).strip()
 
 
-# ─── Ollama LLM Detection ─────────────────────────────────────────────────────
+# ─── LLM Detection (Ollama + Groq) ────────────────────────────────────────────
 
 import json
+import traceback
 import urllib.request
+import urllib.error
 from typing import Optional
 
-def ollama_detect(text: str) -> Optional[dict]:
-    """Call local Ollama Llama 3.1 for highly intelligent context-aware classification."""
-    prompt = f"""You are a strict JSON classification API. You must output ONLY valid JSON.
+_GROQ_KEY = os.environ.get("GROQ_API_KEY", "")
+_IS_DEPLOYED = bool(_GROQ_KEY)
+print(f"[Detection] GROQ_API_KEY set: {bool(_GROQ_KEY)} | Deployed mode: {_IS_DEPLOYED}")
+
+
+def _build_detection_prompt(text: str) -> str:
+    """Shared prompt for both Ollama and Groq detection."""
+    return f"""You are a strict JSON classification API. You must output ONLY valid JSON.
 Analyze the following message and classify its intent into one of three labels:
 1. SAFE: neutral, positive, educational, or general harmless chat (e.g. "have a great day", "have you eat?").
 2. OFFENSIVE: explicitly rude, dismissive, or insulting without being severe cyberbullying.
@@ -449,6 +456,14 @@ Output ONLY a JSON object exactly like this:
   "explanation": "Brief explanation here"
 }}"""
 
+
+def ollama_detect(text: str) -> Optional[dict]:
+    """Call local Ollama phi3:mini for context-aware classification."""
+    if _IS_DEPLOYED:
+        # Skip Ollama entirely in deployed environments — no localhost available
+        return None
+
+    prompt = _build_detection_prompt(text)
     data = {
         "model": "phi3:mini",
         "prompt": prompt,
@@ -473,6 +488,58 @@ Output ONLY a JSON object exactly like this:
             return parsed
     except Exception as e:
         print(f"[Ollama] LLM Inference failed: {e}")
+        return None
+
+
+def groq_detect(text: str) -> Optional[dict]:
+    """Call Groq cloud API for context-aware classification. Fallback when Ollama is unavailable."""
+    api_key = os.environ.get("GROQ_API_KEY", "")
+    if not api_key:
+        print("[Groq Detection] GROQ_API_KEY not set — skipping")
+        return None
+
+    prompt = _build_detection_prompt(text)
+    data = {
+        "model": "llama-3.1-8b-instant",
+        "messages": [
+            {"role": "system", "content": "You are a strict JSON classification API. Output ONLY valid JSON, no markdown, no explanation."},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.0,
+        "max_tokens": 200,
+        "response_format": {"type": "json_object"},
+    }
+
+    try:
+        payload = json.dumps(data).encode("utf-8")
+        req = urllib.request.Request(
+            "https://api.groq.com/openai/v1/chat/completions",
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+            },
+        )
+        print(f"[Groq Detection] Sending classification request...")
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            body = resp.read().decode()
+            result = json.loads(body)
+            content = result["choices"][0]["message"]["content"].strip()
+            parsed = json.loads(content)
+
+            # Basic validation
+            if parsed.get("label") not in ("SAFE", "OFFENSIVE", "CYBERBULLYING"):
+                print(f"[Groq Detection] ⚠️ Invalid label: {parsed.get('label')}")
+                return None
+            print(f"[Groq Detection] ✅ Result: {parsed.get('label')} ({parsed.get('confidence')})")
+            return parsed
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode() if hasattr(e, 'read') else 'N/A'
+        print(f"[Groq Detection] ❌ HTTP {e.code} error: {error_body}")
+        return None
+    except Exception as e:
+        print(f"[Groq Detection] ❌ Failed: {type(e).__name__}: {e}")
+        traceback.print_exc()
         return None
 
 # ─── Custom SVM Model Integration (from CS Research Phase) ────────────────────
@@ -527,18 +594,22 @@ def detect_cyberbullying(text: str) -> dict:
     # 1. Gather context from our local rule base (useful for chatbot context)
     kw_label, kw_conf, kw_meta = keyword_detect(cleaned)
 
-    # 2. Prefer Ollama LLM detection for unparalleled accuracy
+    # 2. Try LLM detection: Ollama (local) → Groq (cloud)
     llm_result = ollama_detect(cleaned)
+    model_used_llm = "phi3:mini"
+    if not llm_result:
+        llm_result = groq_detect(cleaned)
+        model_used_llm = "groq-llama-3.1-8b"
 
     if llm_result:
         label = llm_result["label"]
         confidence = float(llm_result.get("confidence", 0.95))
         sub_type = llm_result.get("sub_type", "None")
         explanation = llm_result.get("explanation", "Detected via LLM analysis.")
-        model_used = "phi3:mini"
+        model_used = model_used_llm
         meta = kw_meta  # keep keyword context for the chatbot to use
     else:
-        # 3. Fallback logic if Ollama fails/is offline
+        # 3. Fallback logic if both LLMs fail/are offline
 
         if kw_label == "CYBERBULLYING":
             label, confidence = kw_label, kw_conf

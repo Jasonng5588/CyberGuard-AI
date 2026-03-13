@@ -437,9 +437,9 @@ import urllib.error
 from typing import Optional
 
 _GROQ_KEY = os.environ.get("GROQ_API_KEY", "")
-_OPENROUTER_KEY = os.environ.get("OPENROUTER_API_KEY", "")
-_IS_DEPLOYED = bool(_GROQ_KEY or _OPENROUTER_KEY)
-print(f"[Detection] OPENROUTER_API_KEY set: {bool(_OPENROUTER_KEY)} | GROQ_API_KEY set: {bool(_GROQ_KEY)} | Deployed mode: {_IS_DEPLOYED}")
+_SAMBANOVA_KEY = os.environ.get("SAMBANOVA_API_KEY", "")
+_IS_DEPLOYED = bool(_GROQ_KEY or _SAMBANOVA_KEY)
+print(f"[Detection] SAMBANOVA_API_KEY set: {bool(_SAMBANOVA_KEY)} | GROQ_API_KEY set: {bool(_GROQ_KEY)} | Deployed mode: {_IS_DEPLOYED}")
 
 
 def _build_detection_prompt(text: str) -> str:
@@ -495,16 +495,16 @@ def ollama_detect(text: str) -> Optional[dict]:
         return None
 
 
-def openrouter_detect(text: str) -> Optional[dict]:
-    """Call OpenRouter API for context-aware classification. Primary cloud provider."""
-    api_key = os.environ.get("OPENROUTER_API_KEY", "")
+def sambanova_detect(text: str) -> Optional[dict]:
+    """Call SambaNova API for context-aware classification. Primary cloud provider."""
+    api_key = os.environ.get("SAMBANOVA_API_KEY", "")
     if not api_key:
-        print("[OpenRouter Detection] OPENROUTER_API_KEY not set — skipping")
+        print("[SambaNova Detection] SAMBANOVA_API_KEY not set — skipping")
         return None
 
     prompt = _build_detection_prompt(text)
     data = {
-        "model": "meta-llama/llama-3.3-70b-instruct:free",
+        "model": "Meta-Llama-3.1-8B-Instruct",
         "messages": [
             {"role": "system", "content": "You are a strict JSON classification API. Output ONLY valid JSON, no markdown, no explanation."},
             {"role": "user", "content": prompt}
@@ -517,37 +517,35 @@ def openrouter_detect(text: str) -> Optional[dict]:
     try:
         payload = json.dumps(data).encode("utf-8")
         req = urllib.request.Request(
-            "https://openrouter.ai/api/v1/chat/completions",
+            "https://api.sambanova.ai/v1/chat/completions",
             data=payload,
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {api_key}",
-                "HTTP-Referer": "https://cyberguard-ai.com",
-                "X-Title": "CyberGuard AI",
             },
         )
-        print(f"[OpenRouter Detection] Sending classification request...")
+        print(f"[SambaNova Detection] Sending classification request...")
         with urllib.request.urlopen(req, timeout=30) as resp:
             body = resp.read().decode()
             result = json.loads(body)
             content = result["choices"][0]["message"]["content"].strip()
-            # OpenRouter LLMs might still return markdown fences despite json_object
+            # LLMs might still return markdown fences despite json_object
             if content.startswith("```"):
                 content = content.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
             parsed = json.loads(content)
 
             # Basic validation
             if parsed.get("label") not in ("SAFE", "OFFENSIVE", "CYBERBULLYING"):
-                print(f"[OpenRouter Detection] ⚠️ Invalid label: {parsed.get('label')}")
+                print(f"[SambaNova Detection] ⚠️ Invalid label: {parsed.get('label')}")
                 return None
-            print(f"[OpenRouter Detection] ✅ Result: {parsed.get('label')} ({parsed.get('confidence')})")
+            print(f"[SambaNova Detection] ✅ Result: {parsed.get('label')} ({parsed.get('confidence')})")
             return parsed
     except urllib.error.HTTPError as e:
         error_body = e.read().decode() if hasattr(e, 'read') else 'N/A'
-        print(f"[OpenRouter Detection] ❌ HTTP {e.code} error: {error_body}")
+        print(f"[SambaNova Detection] ❌ HTTP {e.code} error: {error_body}")
         return None
     except Exception as e:
-        print(f"[OpenRouter Detection] ❌ Failed: {type(e).__name__}: {e}")
+        print(f"[SambaNova Detection] ❌ Failed: {type(e).__name__}: {e}")
         traceback.print_exc()
         return None
 
@@ -655,12 +653,12 @@ def detect_cyberbullying(text: str) -> dict:
     # 1. Gather context from our local rule base (useful for chatbot context)
     kw_label, kw_conf, kw_meta = keyword_detect(cleaned)
 
-    # 2. Try LLM detection: Ollama (local) → OpenRouter (cloud) → Groq (cloud fallback)
+    # 2. Try LLM detection: Ollama (local) → SambaNova (cloud) → Groq (cloud fallback)
     llm_result = ollama_detect(cleaned)
     model_used_llm = "phi3:mini"
     if not llm_result:
-        llm_result = openrouter_detect(cleaned)
-        model_used_llm = "openrouter-llama-3.3-70b"
+        llm_result = sambanova_detect(cleaned)
+        model_used_llm = "sambanova-llama-3.1-8b"
     if not llm_result:
         llm_result = groq_detect(cleaned)
         model_used_llm = "groq-llama-3.1-8b"

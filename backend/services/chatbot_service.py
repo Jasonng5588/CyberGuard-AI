@@ -11,9 +11,11 @@ Enhanced with:
 - Emotional validation and safety checking
 """
 import json
+import os
 import random
 import urllib.request
 from typing import Optional, Any
+
 
 
 # ─── Support Resources (Malaysia-focused, per-category) ──────────────────────
@@ -232,8 +234,72 @@ def _detect_context(message: str, meta: dict) -> dict:
 
 # ─── Bot Response Generator ───────────────────────────────────────────────────
 
+def _build_messages(system_prompt: str, message: str, history: Optional[list[Any]]) -> list[dict[str, Any]]:
+    """Shared message builder for any LLM backend."""
+    msgs: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
+    if history is not None:
+        for msg in history[max(0, len(history) - 10):]:
+            msgs.append({"role": "user", "content": msg.user_message})
+            msgs.append({"role": "assistant", "content": msg.bot_response})
+    msgs.append({"role": "user", "content": message})
+    return msgs
+
+
+def _call_ollama(messages: list[dict[str, Any]]) -> Optional[str]:
+    """Try local Ollama (phi3:mini). Returns None if unavailable."""
+    data = {
+        "model": "phi3:mini",
+        "messages": messages,
+        "stream": False,
+        "options": {"temperature": 0.7, "top_p": 0.90},
+    }
+    try:
+        req = urllib.request.Request(
+            "http://localhost:11434/api/chat",
+            data=json.dumps(data).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            result = json.loads(resp.read().decode())
+            return result["message"]["content"].strip().strip('"').strip()
+    except Exception as e:
+        print(f"[Ollama] unavailable: {e}")
+        return None
+
+
+def _call_groq(messages: list[dict[str, Any]]) -> Optional[str]:
+    """Try Groq cloud API (llama-3.1-8b-instant). Returns None if key missing or fails."""
+    api_key = os.environ.get("GROQ_API_KEY", "")
+    if not api_key:
+        print("[Groq] GROQ_API_KEY not set — skipping")
+        return None
+    data = {
+        "model": "llama-3.1-8b-instant",
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": 300,
+    }
+    try:
+        req = urllib.request.Request(
+            "https://api.groq.com/openai/v1/chat/completions",
+            data=json.dumps(data).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            result = json.loads(resp.read().decode())
+            return result["choices"][0]["message"]["content"].strip().strip('"').strip()
+    except Exception as e:
+        print(f"[Groq] API call failed: {e}")
+        return None
+
+
 def _generate_llm_support_response(message: str, label: str, ctx: dict[str, Any], victim_intent: Optional[str] = None, sub_type: str = "None", history: Optional[list[Any]] = None) -> str:
-    """Generate a context-aware empathetic response using local Ollama (phi3:mini) with conversation history."""
+    """Generate a context-aware empathetic response.
+    Chain: Ollama (local) → Groq API (cloud) → smart rule-based fallback.
+    """
 
     # Build context-specific instructions for the LLM
     support_context = ""
@@ -262,60 +328,45 @@ Write exactly 2-4 sentences of empathetic support addressing the user directly.
 - Understand and incorporate Malaysian cultural context, Manglish, and local slang where appropriate to relate to the user.
 - Be WARM and CARING, like a supportive older sibling or school counsellor.
 - Listen to the user's previous context and have a flow of conversation. Respond to what they said intelligently.
-- If the message is SAFE but they are sharing a struggle (e.g., sad, mad), validate their feelings and give empathetic advice.
-- Only if the message is a casual/happy greeting, respond with positive encouragement.
+- If the message is SAFE but they are sharing a struggle (e.g., sad, stressed, tired), VALIDATE their feelings and give empathetic advice. Do NOT just say it's safe.
+- Only if the message is a casual happy greeting with no struggle, respond with friendly positive encouragement.
 - If the user is seeking HELP, focus on emotional support FIRST.
 - DO NOT repeat slurs or harmful content. DO NOT be generic. Be specific to their situation.
-- CRITICAL ETHICAL BOUNDARY: DO NOT diagnose mental health conditions (like depression, anxiety, trauma). You are a supportive chatbot, NOT a therapist or clinician. Recommend professional services if the user is in severe distress.
+- CRITICAL ETHICAL BOUNDARY: DO NOT diagnose mental health conditions. You are a supportive chatbot, NOT a therapist or clinician. Recommend professional services if the user is in severe distress.
 - Output ONLY the response text. No quotes, no labels.
 """
 
-    messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
-    
-    if history is not None:
-        # Keep last 10 messages for context
-        recent_history = []
-        for i, msg in enumerate(history):
-            if i >= len(history) - 10:
-                recent_history.append(msg)
-                
-        for msg in recent_history:
-            messages.append({"role": "user", "content": msg.user_message})
-            messages.append({"role": "assistant", "content": msg.bot_response})
-            
-    messages.append({"role": "user", "content": message})
+    messages = _build_messages(system_prompt, message, history)
 
-    data = {
-        "model": "phi3:mini",
-        "messages": messages,
-        "stream": False,
-        "options": {
-            "temperature": 0.7,
-            "top_p": 0.90
-        }
-    }
+    # Tier 1: Ollama (local dev)
+    result = _call_ollama(messages)
+    if result:
+        return result
 
-    try:
-        req = urllib.request.Request(
-            "http://localhost:11434/api/chat",
-            data=json.dumps(data).encode("utf-8"),
-            headers={"Content-Type": "application/json"}
-        )
-        with urllib.request.urlopen(req, timeout=60) as response:
-            result = json.loads(response.read().decode())
-            return result["message"]["content"].strip().strip('"').strip()
-    except Exception as e:
-        print(f"[Ollama Chatbot] LLM Inference failed: {e}")
-        # Enhanced fallback responses based on context
-        if victim_intent:
-            responses = EMOTIONAL_RESPONSES.get(victim_intent, EMOTIONAL_RESPONSES["general_help"])
-            return random.choice(responses)
-        if label == "CYBERBULLYING":
-            return "Hey, I'm really sorry you had to deal with that energy. Please don't let their twisted words get into your head. You are so much better than that. \n\nProtect your peace — you deserve kindness and respect, always. "
-        elif label == "OFFENSIVE":
-            return "Honestly, the language here is giving really bad vibes. Your peace of mind matters more than their negativity.  Don't let it get to you."
-        else:
-            return "Vibe check passed!  This message looks totally safe and respectful. Love to see it!"
+    # Tier 2: Groq cloud API (deployed environments)
+    result = _call_groq(messages)
+    if result:
+        return result
+
+    # Tier 3: Smart rule-based fallback (always works, no external deps)
+    print("[Chatbot] Both LLMs unavailable — using rule-based fallback")
+    if victim_intent:
+        responses = EMOTIONAL_RESPONSES.get(victim_intent, EMOTIONAL_RESPONSES["general_help"])
+        return random.choice(responses)
+    if label == "CYBERBULLYING":
+        strategies = COPING_STRATEGIES.get(sub_type, {})
+        coping = strategies.get("immediate", "What happened to you is not okay, and it is not your fault.")
+        return f"{coping} Please remember you are worthy of kindness. Screenshot any evidence, block the sender, and reach out to someone you trust."
+    elif label == "OFFENSIVE":
+        return "That language was really unpleasant, and I get why it bothers you. Your peace of mind matters — consider muting or restricting that person so their negativity can't reach you."
+    else:
+        # SAFE label — check if user is expressing a struggle
+        m = message.lower()
+        if any(w in m for w in ["stress", "stressed", "tired", "sad", "anxious", "worried", "depressed", "down", "bad day", "not good", "not okay", "struggling"]):
+            return "Hey, I hear you — it sounds like things have been tough lately, and that's completely valid. Remember it's okay to not be okay sometimes. Is there something specific on your mind you'd like to talk about?"
+        return "It's really good to hear from you! Your message looks positive and respectful. If you ever need support or want to talk about anything, I'm always here for you."
+
+
 
 
 # ─── Suggested Actions Generator ─────────────────────────────────────────────
